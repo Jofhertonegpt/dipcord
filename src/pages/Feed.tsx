@@ -7,6 +7,8 @@ import { Heart, MessageCircle, ImagePlus } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useState } from "react";
 import { Tables } from "@/integrations/supabase/types";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { ProfileView } from "@/components/profile/ProfileView";
 
 type Post = Tables<"posts"> & {
   profiles: Tables<"profiles">;
@@ -19,6 +21,7 @@ export default function Feed() {
   const queryClient = useQueryClient();
   const [newPostContent, setNewPostContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<string | null>(null);
 
   const { data: posts, isLoading } = useQuery({
     queryKey: ["posts"],
@@ -158,11 +161,17 @@ export default function Feed() {
         <div key={post.id} className="bg-card p-4 rounded-lg shadow">
           {/* Post Header */}
           <div className="flex items-center mb-4">
-            <Avatar className="h-10 w-10">
+            <Avatar 
+              className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => setSelectedProfile(post.profiles.id)}
+            >
               <AvatarImage src={post.profiles.avatar_url || ""} />
               <AvatarFallback>{post.profiles.username?.[0]?.toUpperCase()}</AvatarFallback>
             </Avatar>
-            <div className="ml-3">
+            <div 
+              className="ml-3 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => setSelectedProfile(post.profiles.id)}
+            >
               <p className="font-medium">{post.profiles.username}</p>
             </div>
           </div>
@@ -203,6 +212,18 @@ export default function Feed() {
           </div>
         </div>
       ))}
+
+      {/* Profile Dialog */}
+      <Dialog open={!!selectedProfile} onOpenChange={() => setSelectedProfile(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          {selectedProfile && (
+            <ProfileView 
+              userId={selectedProfile} 
+              onClose={() => setSelectedProfile(null)} 
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
