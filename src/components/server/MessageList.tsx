@@ -4,7 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, FileText } from "lucide-react";
+import { Loader2, FileText, Video, Music } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ProfileView } from "@/components/profile/ProfileView";
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -86,6 +86,16 @@ export const MessageList = ({ channelId }: MessageListProps) => {
     return url.toLowerCase().endsWith('.pdf');
   };
 
+  const isVideo = (url: string) => {
+    const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
+    return videoExtensions.some(ext => url.toLowerCase().endsWith(ext));
+  };
+
+  const isAudio = (url: string) => {
+    const audioExtensions = ['.mp3', '.wav', '.ogg', '.m4a'];
+    return audioExtensions.some(ext => url.toLowerCase().endsWith(ext));
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -156,6 +166,39 @@ export const MessageList = ({ channelId }: MessageListProps) => {
                             </div>
                           </DialogContent>
                         </Dialog>
+                      );
+                    }
+                    if (isVideo(url)) {
+                      return (
+                        <div key={index} className="relative rounded-lg overflow-hidden bg-black/20">
+                          <div className="flex items-center space-x-2 p-2 bg-white/5 rounded">
+                            <Video className="h-5 w-5" />
+                            <span className="text-sm">Video Player</span>
+                          </div>
+                          <video
+                            controls
+                            className="w-full max-h-[400px]"
+                            preload="metadata"
+                          >
+                            <source src={url} />
+                            Your browser does not support the video tag.
+                          </video>
+                        </div>
+                      );
+                    }
+                    if (isAudio(url)) {
+                      return (
+                        <div key={index} className="flex items-center space-x-2 p-2 bg-white/5 rounded">
+                          <Music className="h-5 w-5" />
+                          <audio
+                            controls
+                            className="flex-1"
+                            preload="metadata"
+                          >
+                            <source src={url} />
+                            Your browser does not support the audio tag.
+                          </audio>
+                        </div>
                       );
                     }
                     return (
