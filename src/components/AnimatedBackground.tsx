@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react';
-import { BackgroundImage } from './background/BackgroundImage';
+import { createBackgroundImage } from './background/BackgroundImage';
 import { drawSnowflake } from './background/Snowflake';
 import { useSnowfall } from './background/useSnowfall';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const AnimatedBackground = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -18,13 +20,13 @@ const AnimatedBackground = () => {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    const { backgroundImage, drawBackground } = BackgroundImage({ ctx, canvas });
+    const { backgroundImage, drawBackground } = createBackgroundImage(isMobile);
     const { settings, snowflakes, windStrength, targetWindStrength, setWindStrength } = useSnowfall(canvas);
 
     const animate = () => {
       if (!canvas) return;
       
-      drawBackground();
+      drawBackground(ctx, canvas);
 
       // Update wind
       setWindStrength(prev => prev + (targetWindStrength - prev) * 0.002);
@@ -58,7 +60,7 @@ const AnimatedBackground = () => {
     return () => {
       window.removeEventListener('resize', resizeCanvas);
     };
-  }, []);
+  }, [isMobile]);
 
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-[-1]" />;
 };
