@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ChannelList } from "@/components/server/ChannelList";
 import { MessageList } from "@/components/server/MessageList";
@@ -9,6 +9,7 @@ import { MessageInput } from "@/components/server/MessageInput";
 const ServerView = () => {
   const { serverId } = useParams();
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   // Fetch server details
   const { data: server } = useQuery({
@@ -38,7 +39,15 @@ const ServerView = () => {
         .order('name', { ascending: true });
       
       if (error) throw error;
-      return data;
+      return data as Array<{
+        id: string;
+        name: string;
+        type: 'text' | 'voice';
+        created_at: string;
+        updated_at: string;
+        server_id: string;
+        description: string | null;
+      }>;
     },
     enabled: !!serverId
   });
@@ -83,7 +92,7 @@ const ServerView = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedChannel]);
+  }, [selectedChannel, queryClient]);
 
   return (
     <div className="flex h-screen">

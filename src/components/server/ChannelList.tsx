@@ -13,6 +13,10 @@ interface Channel {
   id: string;
   name: string;
   type: 'text' | 'voice';
+  created_at: string;
+  updated_at: string;
+  server_id: string;
+  description: string | null;
 }
 
 interface ChannelListProps {
