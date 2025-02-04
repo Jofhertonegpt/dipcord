@@ -10,6 +10,7 @@ import Feed from "./pages/Feed";
 import Servers from "./pages/Servers";
 import ServerView from "./pages/ServerView";
 import Messages from "./pages/Messages";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
                 <Route path="/servers" element={<Servers />} />
                 <Route path="/servers/:serverId" element={<ServerView />} />
                 <Route path="/messages" element={<Messages />} />
+                <Route path="/settings" element={<Settings />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </div>

@@ -1,5 +1,5 @@
 import { useLocation, Link } from "react-router-dom";
-import { Home, Server, MessageSquare, LogOut } from "lucide-react";
+import { Home, Server, MessageSquare, LogOut, Settings } from "lucide-react";
 import { Button } from "./ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -54,6 +54,17 @@ export const Navigation = () => {
             }`}
           >
             <MessageSquare className="h-5 w-5" />
+          </Button>
+        </Link>
+        <Link to="/settings">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`hover:scale-110 transition-transform ${
+              isActive("/settings") ? "bg-white/10" : ""
+            }`}
+          >
+            <Settings className="h-5 w-5" />
           </Button>
         </Link>
         <Button
