@@ -77,12 +77,13 @@ export const MessageInput = ({ channelId }: MessageInputProps) => {
   };
 
   return (
-    <div className="p-4 border-t">
+    <div className="p-4 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex items-center space-x-2">
         <Input
           value={messageText}
           onChange={(e) => setMessageText(e.target.value)}
           placeholder="Type a message..."
+          className="flex-1"
           disabled={sendMessage.isPending || isUploading}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -105,12 +106,14 @@ export const MessageInput = ({ channelId }: MessageInputProps) => {
           size="icon"
           onClick={() => document.getElementById('file-upload')?.click()}
           disabled={sendMessage.isPending || isUploading}
+          className="shrink-0"
         >
           <Image className="h-4 w-4" />
         </Button>
         <Button 
           onClick={() => sendMessage.mutate(undefined)}
           disabled={(!messageText.trim() && !isUploading) || sendMessage.isPending}
+          className="shrink-0"
         >
           {sendMessage.isPending || isUploading ? (
             <Loader2 className="h-4 w-4 animate-spin" />

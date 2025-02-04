@@ -59,12 +59,12 @@ export const ChannelList = ({ serverId, channels, selectedChannel, onSelectChann
   });
 
   return (
-    <div className="w-64 bg-muted p-4">
-      <div className="flex items-center justify-between mb-4">
+    <div className="w-64 h-full bg-muted glass-morphism">
+      <div className="flex items-center justify-between p-4 border-b border-border">
         <h2 className="text-lg font-bold">Channels</h2>
         <Dialog open={isCreatingChannel} onOpenChange={setIsCreatingChannel}>
           <DialogTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="hover:bg-accent">
               <Plus className="h-4 w-4" />
             </Button>
           </DialogTrigger>
@@ -82,6 +82,7 @@ export const ChannelList = ({ serverId, channels, selectedChannel, onSelectChann
                 <Button
                   variant={newChannelType === 'text' ? 'default' : 'outline'}
                   onClick={() => setNewChannelType('text')}
+                  className="flex-1"
                 >
                   <Hash className="h-4 w-4 mr-2" />
                   Text
@@ -89,6 +90,7 @@ export const ChannelList = ({ serverId, channels, selectedChannel, onSelectChann
                 <Button
                   variant={newChannelType === 'voice' ? 'default' : 'outline'}
                   onClick={() => setNewChannelType('voice')}
+                  className="flex-1"
                 >
                   <Volume2 className="h-4 w-4 mr-2" />
                   Voice
@@ -105,40 +107,44 @@ export const ChannelList = ({ serverId, channels, selectedChannel, onSelectChann
           </DialogContent>
         </Dialog>
       </div>
-      <ScrollArea className="h-[calc(100vh-8rem)]">
-        <div className="space-y-4">
+      <ScrollArea className="h-[calc(100vh-5rem)] px-2">
+        <div className="space-y-4 py-4">
           <div>
-            <h3 className="text-sm font-semibold mb-2">Text Channels</h3>
+            <h3 className="text-sm font-semibold mb-2 px-2">Text Channels</h3>
             {channels
               ?.filter((channel) => channel.type === 'text')
               .map((channel) => (
                 <button
                   key={channel.id}
                   onClick={() => onSelectChannel(channel.id)}
-                  className={`w-full p-2 flex items-center space-x-2 rounded-lg hover:bg-accent ${
-                    selectedChannel === channel.id ? 'bg-accent' : ''
+                  className={`w-full p-2 flex items-center space-x-2 rounded-lg transition-colors ${
+                    selectedChannel === channel.id 
+                      ? 'bg-accent text-accent-foreground' 
+                      : 'hover:bg-accent/50'
                   }`}
                 >
-                  <Hash className="h-4 w-4" />
-                  <span>{channel.name}</span>
+                  <Hash className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{channel.name}</span>
                 </button>
               ))}
           </div>
           <Separator />
           <div>
-            <h3 className="text-sm font-semibold mb-2">Voice Channels</h3>
+            <h3 className="text-sm font-semibold mb-2 px-2">Voice Channels</h3>
             {channels
               ?.filter((channel) => channel.type === 'voice')
               .map((channel) => (
                 <button
                   key={channel.id}
                   onClick={() => onSelectChannel(channel.id)}
-                  className={`w-full p-2 flex items-center space-x-2 rounded-lg hover:bg-accent ${
-                    selectedChannel === channel.id ? 'bg-accent' : ''
+                  className={`w-full p-2 flex items-center space-x-2 rounded-lg transition-colors ${
+                    selectedChannel === channel.id 
+                      ? 'bg-accent text-accent-foreground' 
+                      : 'hover:bg-accent/50'
                   }`}
                 >
-                  <Volume2 className="h-4 w-4" />
-                  <span>{channel.name}</span>
+                  <Volume2 className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{channel.name}</span>
                 </button>
               ))}
           </div>

@@ -24,7 +24,6 @@ const ServerView = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const queryClient = useQueryClient();
 
-  // Fetch server details
   const { data: server, isLoading: loadingServer } = useQuery({
     queryKey: ['server', serverId],
     queryFn: async () => {
@@ -112,33 +111,35 @@ const ServerView = () => {
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
       <div 
-        className={`transition-all duration-300 ${
-          sidebarOpen ? 'w-64' : 'w-0'
-        } h-full relative`}
+        className={`fixed left-0 top-0 h-full z-30 transition-all duration-300 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
       >
-        {sidebarOpen && (
-          <ChannelList
-            serverId={serverId!}
-            channels={channels}
-            selectedChannel={selectedChannel}
-            onSelectChannel={setSelectedChannel}
-          />
-        )}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute -right-10 top-4"
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-        >
-          {sidebarOpen ? <PanelLeftIcon /> : <PanelRightIcon />}
-        </Button>
+        <ChannelList
+          serverId={serverId!}
+          channels={channels}
+          selectedChannel={selectedChannel}
+          onSelectChannel={setSelectedChannel}
+        />
       </div>
 
+      {/* Toggle Button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="fixed left-4 top-4 z-40"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+      >
+        {sidebarOpen ? <PanelLeftIcon /> : <PanelRightIcon />}
+      </Button>
+
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-full">
+      <div className={`flex-1 flex flex-col h-full transition-all duration-300 ${
+        sidebarOpen ? 'ml-64' : 'ml-0'
+      }`}>
         {selectedChannel ? (
           <>
             {loadingMessages ? (
@@ -150,9 +151,7 @@ const ServerView = () => {
                 <div className="flex-1 overflow-hidden">
                   <MessageList messages={messages} channelId={selectedChannel} />
                 </div>
-                <div className="p-4 border-t border-border">
-                  <MessageInput channelId={selectedChannel} />
-                </div>
+                <MessageInput channelId={selectedChannel} />
               </>
             )}
           </>
