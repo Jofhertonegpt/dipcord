@@ -125,37 +125,40 @@ export const MessageList = ({ channelId }: MessageListProps) => {
               <p className="text-white/80">{message.content}</p>
               {message.media_urls && message.media_urls.length > 0 && (
                 <div className="grid gap-2 mt-2 grid-cols-1">
-                  {message.media_urls.map((url, index) => (
-                    isPdf(url) ? (
-                      <Dialog key={index} open={selectedPdf === url} onOpenChange={(open) => setSelectedPdf(open ? url : null)}>
-                        <DialogTrigger asChild>
-                          <div className="flex items-center space-x-2 p-2 bg-white/5 rounded cursor-pointer hover:bg-white/10 transition-colors">
-                            <FileText className="h-6 w-6" />
-                            <span>View PDF</span>
-                          </div>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-4xl h-[80vh]">
-                          <DialogTitle>PDF Viewer</DialogTitle>
-                          <div className="flex-1 overflow-auto">
-                            <Document
-                              file={url}
-                              onLoadSuccess={({ numPages }) => setNumPages(numPages)}
-                              className="pdf-document"
-                            >
-                              {Array.from(new Array(numPages || 0), (_, index) => (
-                                <Page
-                                  key={`page_${index + 1}`}
-                                  pageNumber={index + 1}
-                                  className="mb-4"
-                                  renderTextLayer={false}
-                                  renderAnnotationLayer={false}
-                                />
-                              ))}
-                            </Document>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    ) : (
+                  {message.media_urls.map((url, index) => {
+                    if (isPdf(url)) {
+                      return (
+                        <Dialog key={index} open={selectedPdf === url} onOpenChange={(open) => setSelectedPdf(open ? url : null)}>
+                          <DialogTrigger asChild>
+                            <div className="flex items-center space-x-2 p-2 bg-white/5 rounded cursor-pointer hover:bg-white/10 transition-colors">
+                              <FileText className="h-6 w-6" />
+                              <span>View PDF</span>
+                            </div>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-4xl h-[80vh]">
+                            <DialogTitle>PDF Viewer</DialogTitle>
+                            <div className="flex-1 overflow-auto">
+                              <Document
+                                file={url}
+                                onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                                className="pdf-document"
+                              >
+                                {Array.from(new Array(numPages || 0), (_, index) => (
+                                  <Page
+                                    key={`page_${index + 1}`}
+                                    pageNumber={index + 1}
+                                    className="mb-4"
+                                    renderTextLayer={false}
+                                    renderAnnotationLayer={false}
+                                  />
+                                ))}
+                              </Document>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      );
+                    }
+                    return (
                       <img
                         key={index}
                         src={url}
@@ -163,8 +166,8 @@ export const MessageList = ({ channelId }: MessageListProps) => {
                         className="rounded-md max-w-full h-auto object-cover hover:opacity-90 transition-opacity cursor-pointer"
                         onClick={() => window.open(url, '_blank')}
                       />
-                    )
-                  )}
+                    );
+                  })}
                 </div>
               )}
             </div>
