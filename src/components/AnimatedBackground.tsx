@@ -30,7 +30,7 @@ const AnimatedBackground = () => {
 
     // Load and draw the background image
     const backgroundImage = new Image();
-    backgroundImage.src = '/lovable-uploads/53fde225-7320-4f9f-b935-8e2da650ffbe.png';
+    backgroundImage.src = '/lovable-uploads/1507ee57-1fc6-42bd-85b8-056eee1a9857.png';
     
     // Star properties with enhanced twinkling
     const stars: {
