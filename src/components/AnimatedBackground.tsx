@@ -96,22 +96,30 @@ const AnimatedBackground = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       
-      // Draw background image with improved quality
+      // Draw background image with improved quality and cover behavior
       if (backgroundImage.complete) {
-        // Calculate dimensions to cover the canvas while maintaining aspect ratio
-        const scale = Math.max(
-          window.innerWidth / backgroundImage.width,
-          window.innerHeight / backgroundImage.height
-        );
-        const width = backgroundImage.width * scale;
-        const height = backgroundImage.height * scale;
-        const x = (window.innerWidth - width) / 2;
-        const y = (window.innerHeight - height) / 2;
+        const canvasAspect = window.innerWidth / window.innerHeight;
+        const imageAspect = backgroundImage.width / backgroundImage.height;
+        
+        let drawWidth = window.innerWidth;
+        let drawHeight = window.innerHeight;
+        let x = 0;
+        let y = 0;
+
+        if (canvasAspect > imageAspect) {
+          // Canvas is wider than image aspect ratio
+          drawHeight = window.innerWidth / imageAspect;
+          y = (window.innerHeight - drawHeight) / 2;
+        } else {
+          // Canvas is taller than image aspect ratio
+          drawWidth = window.innerHeight * imageAspect;
+          x = (window.innerWidth - drawWidth) / 2;
+        }
         
         // Use better image rendering
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(backgroundImage, x, y, width, height);
+        ctx.drawImage(backgroundImage, x, y, drawWidth, drawHeight);
       }
 
       // Draw enhanced twinkling stars
