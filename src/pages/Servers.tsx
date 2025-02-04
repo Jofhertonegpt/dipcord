@@ -114,7 +114,7 @@ const Servers = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <div className="container mx-auto max-w-4xl p-4">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold">Servers</h1>
