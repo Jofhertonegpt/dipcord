@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -231,7 +231,11 @@ const Servers = () => {
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <CardTitle className="text-lg text-white">{server.name}</CardTitle>
+                      <CardTitle className="text-lg text-white">
+                        <Link to={`/servers/${server.id}`} className="hover:underline">
+                          {server.name}
+                        </Link>
+                      </CardTitle>
                       <p className="text-sm text-white/60">{server.description}</p>
                     </div>
                   </div>
@@ -243,20 +247,26 @@ const Servers = () => {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button 
-                    className="w-full hover:bg-white/10" 
-                    variant="outline"
-                    onClick={() => joinServer.mutate(server.id)}
-                    disabled={joinServer.isPending || server.is_member}
-                  >
-                    {joinServer.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : server.is_member ? (
-                      "Already Joined"
-                    ) : (
-                      "Join Server"
-                    )}
-                  </Button>
+                  {server.is_member ? (
+                    <Link to={`/servers/${server.id}`} className="w-full">
+                      <Button className="w-full" variant="outline">
+                        View Server
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button 
+                      className="w-full hover:bg-white/10" 
+                      variant="outline"
+                      onClick={() => joinServer.mutate(server.id)}
+                      disabled={joinServer.isPending}
+                    >
+                      {joinServer.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        "Join Server"
+                      )}
+                    </Button>
+                  )}
                 </CardFooter>
               </Card>
             ))}

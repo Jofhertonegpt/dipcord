@@ -8,6 +8,7 @@ import { Navigation } from "./components/Navigation";
 import Index from "./pages/Index";
 import Feed from "./pages/Feed";
 import Servers from "./pages/Servers";
+import ServerView from "./pages/ServerView";
 import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 
@@ -28,6 +29,7 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/feed" element={<Feed />} />
                 <Route path="/servers" element={<Servers />} />
+                <Route path="/servers/:serverId" element={<ServerView />} />
                 <Route path="/messages" element={<Messages />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
