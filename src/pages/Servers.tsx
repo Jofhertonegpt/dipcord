@@ -19,6 +19,7 @@ interface Server {
   updated_at: string;
   is_private: boolean | null;
   member_count: number;
+  is_member?: boolean;
 }
 
 const Servers = () => {
@@ -40,6 +41,10 @@ const Servers = () => {
   const { data: servers, isLoading } = useQuery({
     queryKey: ['servers'],
     queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Get all servers with member count
       const { data, error } = await supabase
         .from('servers')
         .select(`
@@ -49,10 +54,19 @@ const Servers = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+
+      // Get user's memberships
+      const { data: memberships } = await supabase
+        .from('server_members')
+        .select('server_id')
+        .eq('user_id', user.id);
+
+      const memberServerIds = new Set(memberships?.map(m => m.server_id) || []);
       
       return (data || []).map(server => ({
         ...server,
-        member_count: server.member_count?.[0]?.count || 0
+        member_count: server.member_count?.[0]?.count || 0,
+        is_member: memberServerIds.has(server.id)
       })) as Server[];
     },
   });
@@ -108,6 +122,18 @@ const Servers = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Check if already a member
+      const { data: existingMembership } = await supabase
+        .from('server_members')
+        .select('id')
+        .eq('server_id', serverId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (existingMembership) {
+        throw new Error("You are already a member of this server");
+      }
+
       const { error } = await supabase
         .from('server_members')
         .insert([{ 
@@ -122,7 +148,7 @@ const Servers = () => {
       toast.success("Joined server successfully!");
     },
     onError: (error: Error) => {
-      toast.error(`Error joining server: ${error.message}`);
+      toast.error(error.message);
     }
   });
 
@@ -221,10 +247,12 @@ const Servers = () => {
                     className="w-full hover:bg-white/10" 
                     variant="outline"
                     onClick={() => joinServer.mutate(server.id)}
-                    disabled={joinServer.isPending}
+                    disabled={joinServer.isPending || server.is_member}
                   >
                     {joinServer.isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : server.is_member ? (
+                      "Already Joined"
                     ) : (
                       "Join Server"
                     )}
