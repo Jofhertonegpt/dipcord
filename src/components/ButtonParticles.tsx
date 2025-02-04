@@ -1,145 +1,141 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 
 interface Particle {
-  id: number;
   x: number;
   y: number;
+  vx: number;
+  vy: number;
   size: number;
   color: string;
-  velocity: { x: number; y: number };
-  opacity: number;
   rotation: number;
+  rotationSpeed: number;
   shape: "circle" | "star" | "triangle";
+  opacity: number;
 }
 
-export const ButtonParticles = ({ x, y }: { x: number; y: number }) => {
-  const [particles, setParticles] = useState<Particle[]>([]);
+interface ButtonParticlesProps {
+  x: number;
+  y: number;
+}
 
-  const christmasColors = [
-    "#ea384c", // Red
-    "#34a853", // Green
-    "#fbbc05", // Gold
-    "#ffffff", // White
-  ];
-
-  const createShape = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, shape: "circle" | "star" | "triangle", rotation: number) => {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(rotation);
-
-    if (shape === "star") {
-      const spikes = 5;
-      const outerRadius = size;
-      const innerRadius = size / 2;
-
-      ctx.beginPath();
-      for (let i = 0; i < spikes * 2; i++) {
-        const radius = i % 2 === 0 ? outerRadius : innerRadius;
-        const angle = (Math.PI * i) / spikes;
-        const pointX = Math.cos(angle) * radius;
-        const pointY = Math.sin(angle) * radius;
-        if (i === 0) ctx.moveTo(pointX, pointY);
-        else ctx.lineTo(pointX, pointY);
-      }
-      ctx.closePath();
-    } else if (shape === "triangle") {
-      ctx.beginPath();
-      ctx.moveTo(-size / 2, size / 2);
-      ctx.lineTo(size / 2, size / 2);
-      ctx.lineTo(0, -size / 2);
-      ctx.closePath();
-    } else {
-      ctx.beginPath();
-      ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
-    }
-
-    ctx.restore();
-  };
+export const ButtonParticles = ({ x, y }: ButtonParticlesProps) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const particles = useRef<Particle[]>([]);
+  const animationRef = useRef<number>();
 
   useEffect(() => {
-    const canvas = document.createElement('canvas');
-    canvas.style.position = 'fixed';
-    canvas.style.top = '0';
-    canvas.style.left = '0';
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
-    canvas.style.pointerEvents = 'none';
-    canvas.style.zIndex = '9999';
-    document.body.appendChild(canvas);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    const ctx = canvas.getContext('2d')!;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Set canvas size to window size
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    const particleCount = 24;
-    const newParticles: Particle[] = [];
+    // Create particles
+    const colors = ["#FFD700", "#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"];
+    const particleCount = 50;
 
     for (let i = 0; i < particleCount; i++) {
       const angle = (Math.PI * 2 * i) / particleCount;
-      const velocity = 8 + Math.random() * 8;
-      const shape = Math.random() < 0.33 ? "star" : Math.random() < 0.66 ? "triangle" : "circle";
+      const speed = 5 + Math.random() * 10;
+      const shape = Math.random() < 0.33 ? "circle" : Math.random() < 0.66 ? "star" : "triangle";
       
-      newParticles.push({
-        id: i,
+      particles.current.push({
         x,
         y,
-        size: Math.random() * 8 + 4,
-        color: christmasColors[Math.floor(Math.random() * christmasColors.length)],
-        velocity: {
-          x: Math.cos(angle) * velocity,
-          y: Math.sin(angle) * velocity,
-        },
-        opacity: 1,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 2, // Add upward boost
+        size: 3 + Math.random() * 5,
+        color: colors[Math.floor(Math.random() * colors.length)],
         rotation: Math.random() * Math.PI * 2,
+        rotationSpeed: (Math.random() - 0.5) * 0.2,
         shape,
+        opacity: 1
       });
     }
 
-    setParticles(newParticles);
+    const drawParticle = (particle: Particle) => {
+      if (!ctx) return;
+      
+      ctx.save();
+      ctx.translate(particle.x, particle.y);
+      ctx.rotate(particle.rotation);
+      ctx.globalAlpha = particle.opacity;
+      ctx.fillStyle = particle.color;
+      ctx.beginPath();
 
-    let animationFrame: number;
+      switch (particle.shape) {
+        case "star":
+          for (let i = 0; i < 5; i++) {
+            const angle = (Math.PI * 2 * i) / 5;
+            const x = Math.cos(angle) * particle.size;
+            const y = Math.sin(angle) * particle.size;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          break;
+        case "triangle":
+          const size = particle.size * 1.5;
+          ctx.moveTo(-size/2, size/2);
+          ctx.lineTo(size/2, size/2);
+          ctx.lineTo(0, -size/2);
+          break;
+        default:
+          ctx.arc(0, 0, particle.size, 0, Math.PI * 2);
+      }
+
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    };
+
     const animate = () => {
+      if (!ctx || !canvas) return;
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      setParticles(prevParticles => 
-        prevParticles
-          .map(particle => {
-            particle.x += particle.velocity.x;
-            particle.y += particle.velocity.y;
-            particle.velocity.y += 0.2; // gravity
-            particle.opacity *= 0.96;
-            particle.rotation += 0.1;
-            particle.size *= 0.96;
+      particles.current = particles.current.filter(particle => particle.opacity > 0);
 
-            ctx.save();
-            ctx.fillStyle = particle.color;
-            ctx.globalAlpha = particle.opacity;
-            
-            createShape(ctx, particle.x, particle.y, particle.size, particle.shape, particle.rotation);
-            ctx.fill();
-            ctx.restore();
+      particles.current.forEach(particle => {
+        // Apply gravity
+        particle.vy += 0.2;
+        
+        // Update position
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        
+        // Update rotation
+        particle.rotation += particle.rotationSpeed;
+        
+        // Fade out
+        particle.opacity -= 0.02;
+        
+        // Draw
+        drawParticle(particle);
+      });
 
-            return particle;
-          })
-          .filter(particle => particle.opacity > 0.1)
-      );
-
-      if (particles.length > 0) {
-        animationFrame = requestAnimationFrame(animate);
-      } else {
-        document.body.removeChild(canvas);
+      if (particles.current.length > 0) {
+        animationRef.current = requestAnimationFrame(animate);
       }
     };
 
     animate();
 
     return () => {
-      cancelAnimationFrame(animationFrame);
-      if (document.body.contains(canvas)) {
-        document.body.removeChild(canvas);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
       }
     };
   }, [x, y]);
 
-  return null;
+  return (
+    <canvas
+      ref={canvasRef}
+      className="pointer-events-none fixed inset-0 z-50"
+      style={{ width: "100%", height: "100%" }}
+    />
+  );
 };
