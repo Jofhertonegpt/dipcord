@@ -48,7 +48,12 @@ const Servers = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Server[];
+      
+      // Transform the data to match our Server interface
+      return (data || []).map(server => ({
+        ...server,
+        member_count: server.member_count?.[0]?.count || 0
+      })) as Server[];
     },
   });
 
