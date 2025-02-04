@@ -13,7 +13,7 @@ interface Message {
   sender: {
     username: string;
     avatar_url: string;
-  };
+  } | null;
 }
 
 interface MessageListProps {
@@ -55,12 +55,17 @@ export const MessageList = ({ messages, channelId }: MessageListProps) => {
         {messages?.map((message) => (
           <div key={message.id} className="flex items-start space-x-3">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={message.sender.avatar_url} alt={message.sender.username} />
-              <AvatarFallback>{message.sender.username[0]?.toUpperCase()}</AvatarFallback>
+              {message.sender?.avatar_url ? (
+                <AvatarImage src={message.sender.avatar_url} alt={message.sender?.username || 'User'} />
+              ) : (
+                <AvatarFallback>
+                  {message.sender?.username?.[0]?.toUpperCase() || '?'}
+                </AvatarFallback>
+              )}
             </Avatar>
             <div>
               <div className="flex items-baseline space-x-2">
-                <span className="font-semibold">{message.sender.username}</span>
+                <span className="font-semibold">{message.sender?.username || 'Unknown User'}</span>
                 <span className="text-xs text-muted-foreground">
                   {new Date(message.created_at).toLocaleString()}
                 </span>
