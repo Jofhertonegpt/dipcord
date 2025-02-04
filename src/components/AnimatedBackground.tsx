@@ -16,27 +16,22 @@ const AnimatedBackground = () => {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    // Star properties
-    const stars: {
+    // Pine tree properties
+    const trees: {
       x: number;
       y: number;
-      radius: number;
-      color: string;
-      twinkleSpeed: number;
-      twinklePhase: number;
+      height: number;
+      layers: number;
     }[] = [];
-    const numStars = 150;
-    const colors = ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#8B00FF'];
     
-    // Initialize stars
-    for (let i = 0; i < numStars; i++) {
-      stars.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        radius: Math.random() * 2 + 1,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        twinkleSpeed: 0.02 + Math.random() * 0.03,
-        twinklePhase: Math.random() * Math.PI * 2
+    // Initialize trees
+    const numTrees = Math.floor(canvas.width / 100); // Adjust spacing based on screen width
+    for (let i = 0; i < numTrees; i++) {
+      trees.push({
+        x: (i * canvas.width / numTrees) + (Math.random() * 50 - 25), // Add some randomness to x position
+        y: canvas.height + 20, // Start below screen
+        height: 150 + Math.random() * 100, // Random height
+        layers: 5 + Math.floor(Math.random() * 3) // Random number of triangle layers
       });
     }
 
@@ -72,6 +67,40 @@ const AnimatedBackground = () => {
     };
     updateWind();
 
+    // Draw a pine tree
+    const drawTree = (x: number, y: number, height: number, layers: number) => {
+      const baseWidth = height * 0.6;
+      const layerHeight = height / layers;
+      
+      // Draw trunk
+      ctx.fillStyle = '#3B2417';
+      ctx.fillRect(x - 5, y - height * 0.2, 10, height * 0.2);
+      
+      // Draw tree layers (triangles)
+      ctx.fillStyle = '#0B3B24';
+      for (let i = 0; i < layers; i++) {
+        const currentHeight = y - (i * layerHeight);
+        const currentWidth = (baseWidth * (layers - i)) / layers;
+        
+        ctx.beginPath();
+        ctx.moveTo(x - currentWidth / 2, currentHeight);
+        ctx.lineTo(x + currentWidth / 2, currentHeight);
+        ctx.lineTo(x, currentHeight - layerHeight);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Add snow on branches
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.beginPath();
+        ctx.moveTo(x - currentWidth / 2 + 5, currentHeight - 2);
+        ctx.lineTo(x + currentWidth / 2 - 5, currentHeight - 2);
+        ctx.lineTo(x, currentHeight - layerHeight + 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#0B3B24';
+      }
+    };
+
     // Animation loop
     let animationFrameId: number;
     const animate = () => {
@@ -81,23 +110,9 @@ const AnimatedBackground = () => {
       // Smoothly adjust wind strength
       windStrength += (targetWindStrength - windStrength) * 0.002;
 
-      // Draw and animate stars
-      stars.forEach(star => {
-        star.twinklePhase += star.twinkleSpeed;
-        const glow = Math.abs(Math.sin(star.twinklePhase)) * 15;
-        
-        const gradient = ctx.createRadialGradient(
-          star.x, star.y, 0,
-          star.x, star.y, star.radius + glow
-        );
-        gradient.addColorStop(0, star.color);
-        gradient.addColorStop(0.5, `${star.color}40`);
-        gradient.addColorStop(1, 'transparent');
-        
-        ctx.beginPath();
-        ctx.fillStyle = gradient;
-        ctx.arc(star.x, star.y, star.radius + glow, 0, Math.PI * 2);
-        ctx.fill();
+      // Draw trees
+      trees.forEach(tree => {
+        drawTree(tree.x, tree.y, tree.height, tree.layers);
       });
 
       // Draw and animate snowflakes
