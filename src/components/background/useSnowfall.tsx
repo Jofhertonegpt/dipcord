@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { Snowflake } from "./Snowflake";
+import { Snowflake, SnowflakeImpl } from "./Snowflake";
 
 export const useSnowfall = () => {
   const snowflakes = useRef<Snowflake[]>([]);
@@ -44,7 +44,7 @@ export const useSnowfall = () => {
     // Initialize snowflakes
     const snowflakeCount = Math.floor((window.innerWidth * window.innerHeight) / 15000);
     for (let i = 0; i < snowflakeCount; i++) {
-      snowflakes.current.push(new Snowflake(canvas.width, canvas.height));
+      snowflakes.current.push(new SnowflakeImpl(canvas.width, canvas.height));
     }
 
     // Start wind simulation
