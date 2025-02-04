@@ -8,7 +8,6 @@ const AnimatedBackground = () => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d')!;
     
-    // Set canvas size and handle resize
     const resizeCanvas = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
@@ -16,26 +15,28 @@ const AnimatedBackground = () => {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    // Pine tree properties with taller, more realistic proportions
+    // Pine tree properties with more realistic proportions
     const trees: {
       x: number;
       y: number;
       height: number;
       layers: number;
+      variation: number;
     }[] = [];
     
-    // Initialize trees with more varied heights and positions
-    const numTrees = Math.floor(canvas.width / 80); // Slightly more dense forest
+    // Initialize trees with varied heights and positions
+    const numTrees = Math.floor(canvas.width / 100);
     for (let i = 0; i < numTrees; i++) {
       trees.push({
-        x: (i * canvas.width / numTrees) + (Math.random() * 60 - 30), // More random positioning
+        x: (i * canvas.width / numTrees) + (Math.random() * 80 - 40),
         y: canvas.height + 20,
-        height: 180 + Math.random() * 120, // Taller trees with more height variation
-        layers: 6 + Math.floor(Math.random() * 4) // More layers for fuller trees
+        height: 200 + Math.random() * 150,
+        layers: 7 + Math.floor(Math.random() * 4),
+        variation: Math.random()
       });
     }
 
-    // Star properties
+    // Star properties with enhanced twinkling
     const stars: {
       x: number;
       y: number;
@@ -45,12 +46,12 @@ const AnimatedBackground = () => {
       twinklePhase: number;
     }[] = [];
 
-    // Initialize stars
-    const numStars = 200;
+    // Initialize more stars for a denser night sky
+    const numStars = 300;
     for (let i = 0; i < numStars; i++) {
       stars.push({
         x: Math.random() * canvas.width,
-        y: Math.random() * (canvas.height * 0.7), // Stars only in upper portion
+        y: Math.random() * (canvas.height * 0.8),
         size: Math.random() * 2 + 0.5,
         brightness: Math.random(),
         twinkleSpeed: 0.02 + Math.random() * 0.03,
@@ -58,7 +59,7 @@ const AnimatedBackground = () => {
       });
     }
 
-    // Snowflake properties
+    // Enhanced snowflake properties
     const snowflakes: {
       x: number;
       y: number;
@@ -66,10 +67,11 @@ const AnimatedBackground = () => {
       speed: number;
       windOffset: number;
       windPhase: number;
+      opacity: number;
     }[] = [];
-    const numSnowflakes = 200;
-
-    // Initialize snowflakes
+    
+    // Initialize more detailed snowflakes
+    const numSnowflakes = 250;
     for (let i = 0; i < numSnowflakes; i++) {
       snowflakes.push({
         x: Math.random() * canvas.width,
@@ -77,7 +79,8 @@ const AnimatedBackground = () => {
         size: Math.random() * 3 + 1,
         speed: 1 + Math.random() * 2,
         windOffset: Math.random() * 2 - 1,
-        windPhase: Math.random() * Math.PI * 2
+        windPhase: Math.random() * Math.PI * 2,
+        opacity: 0.4 + Math.random() * 0.6
       });
     }
 
@@ -90,52 +93,62 @@ const AnimatedBackground = () => {
     };
     updateWind();
 
-    // Draw a pine tree
-    const drawTree = (x: number, y: number, height: number, layers: number) => {
-      const baseWidth = height * 0.5; // Slimmer trees
+    // Draw a more realistic pine tree
+    const drawTree = (x: number, y: number, height: number, layers: number, variation: number) => {
+      const baseWidth = height * 0.4;
       const layerHeight = height / layers;
       
-      // Draw trunk
+      // Draw trunk with more natural color
       ctx.fillStyle = '#2A1B0A';
-      ctx.fillRect(x - 6, y - height * 0.2, 12, height * 0.2);
+      const trunkWidth = height * 0.05;
+      ctx.fillRect(x - trunkWidth/2, y - height * 0.2, trunkWidth, height * 0.2);
       
-      // Draw tree layers (triangles)
-      ctx.fillStyle = '#0A2F1F';
+      // Draw tree layers with more natural variation
       for (let i = 0; i < layers; i++) {
         const currentHeight = y - (i * layerHeight);
-        const currentWidth = (baseWidth * (layers - i)) / layers;
+        const layerWidth = (baseWidth * (layers - i)) / layers;
+        const offsetX = Math.sin(i + variation) * (layerWidth * 0.1);
         
+        // Draw main foliage with darker base
+        ctx.fillStyle = '#0A2F1F';
         ctx.beginPath();
-        ctx.moveTo(x - currentWidth / 2, currentHeight);
-        ctx.lineTo(x + currentWidth / 2, currentHeight);
-        ctx.lineTo(x, currentHeight - layerHeight);
+        ctx.moveTo(x - layerWidth/2 + offsetX, currentHeight);
+        ctx.lineTo(x + layerWidth/2 + offsetX, currentHeight);
+        ctx.lineTo(x + offsetX, currentHeight - layerHeight * 1.2);
         ctx.closePath();
         ctx.fill();
         
-        // Add snow on branches
+        // Add snow with subtle shadows
         ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
         ctx.beginPath();
-        ctx.moveTo(x - currentWidth / 2 + 5, currentHeight - 2);
-        ctx.lineTo(x + currentWidth / 2 - 5, currentHeight - 2);
-        ctx.lineTo(x, currentHeight - layerHeight + 5);
+        ctx.moveTo(x - layerWidth/2 + offsetX + 5, currentHeight - 2);
+        ctx.lineTo(x + layerWidth/2 + offsetX - 5, currentHeight - 2);
+        ctx.lineTo(x + offsetX, currentHeight - layerHeight * 1.1);
         ctx.closePath();
         ctx.fill();
-        ctx.fillStyle = '#0A2F1F';
+        
+        // Add highlights for depth
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.beginPath();
+        ctx.moveTo(x + offsetX, currentHeight - layerHeight * 1.1);
+        ctx.lineTo(x + layerWidth/4 + offsetX, currentHeight - layerHeight * 0.5);
+        ctx.lineTo(x + offsetX, currentHeight - layerHeight * 0.8);
+        ctx.closePath();
+        ctx.fill();
       }
     };
 
     // Animation loop
-    let animationFrameId: number;
     const animate = () => {
-      // Draw night sky gradient
+      // Draw deep night sky gradient
       const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      gradient.addColorStop(0, '#0A0A2F'); // Deep blue at top
-      gradient.addColorStop(0.5, '#1A1A4F'); // Lighter blue in middle
-      gradient.addColorStop(1, '#2A2A6F'); // Even lighter at bottom
+      gradient.addColorStop(0, '#0A0A2F');
+      gradient.addColorStop(0.5, '#1A1A4F');
+      gradient.addColorStop(1, '#2A2A6F');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Draw stars with twinkling effect
+      // Draw enhanced twinkling stars
       stars.forEach(star => {
         star.twinklePhase += star.twinkleSpeed;
         const twinkle = Math.sin(star.twinklePhase) * 0.5 + 0.5;
@@ -147,16 +160,15 @@ const AnimatedBackground = () => {
         ctx.fill();
       });
 
-      // Smoothly adjust wind strength
+      // Update wind
       windStrength += (targetWindStrength - windStrength) * 0.002;
 
-      // Draw trees
+      // Draw refined trees
       trees.forEach(tree => {
-        drawTree(tree.x, tree.y, tree.height, tree.layers);
+        drawTree(tree.x, tree.y, tree.height, tree.layers, tree.variation);
       });
 
-      // Draw and animate snowflakes
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      // Draw enhanced snowflakes
       snowflakes.forEach(flake => {
         flake.windPhase += 0.02;
         const windEffect = Math.sin(flake.windPhase) * 0.5;
@@ -168,20 +180,15 @@ const AnimatedBackground = () => {
           flake.y = -5;
           flake.x = Math.random() * canvas.width;
         }
-        if (flake.x > canvas.width) {
-          flake.x = 0;
-        }
-        if (flake.x < 0) {
-          flake.x = canvas.width;
-        }
+        if (flake.x > canvas.width) flake.x = 0;
+        if (flake.x < 0) flake.x = canvas.width;
 
-        // Draw snowflake with subtle gradient
         const gradient = ctx.createRadialGradient(
           flake.x, flake.y, 0,
           flake.x, flake.y, flake.size
         );
-        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
-        gradient.addColorStop(1, 'rgba(255, 255, 255, 0.1)');
+        gradient.addColorStop(0, `rgba(255, 255, 255, ${flake.opacity})`);
+        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
         
         ctx.beginPath();
         ctx.fillStyle = gradient;
@@ -189,14 +196,13 @@ const AnimatedBackground = () => {
         ctx.fill();
       });
 
-      animationFrameId = requestAnimationFrame(animate);
+      requestAnimationFrame(animate);
     };
 
     animate();
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
-      cancelAnimationFrame(animationFrameId);
     };
   }, []);
 
