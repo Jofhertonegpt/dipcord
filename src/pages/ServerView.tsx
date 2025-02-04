@@ -39,7 +39,6 @@ const ServerView = () => {
     enabled: !!serverId
   });
 
-  // Fetch channels with type casting
   const { data: channels, isLoading: loadingChannels } = useQuery({
     queryKey: ['channels', serverId],
     queryFn: async () => {
@@ -52,7 +51,6 @@ const ServerView = () => {
       
       if (error) throw error;
       
-      // Ensure the type is either 'text' or 'voice'
       return data?.map(channel => ({
         ...channel,
         type: channel.type === 'voice' ? 'voice' : 'text'
@@ -77,7 +75,6 @@ const ServerView = () => {
     enabled: !!selectedChannel
   });
 
-  // Set up realtime subscriptions for channels
   useEffect(() => {
     if (!serverId) return;
 
@@ -111,10 +108,10 @@ const ServerView = () => {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-background">
       {/* Sidebar */}
       <div 
-        className={`fixed left-0 top-0 h-full z-30 transition-all duration-300 ${
+        className={`fixed left-0 top-0 h-[calc(100vh-4rem)] z-30 transition-all duration-300 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -151,7 +148,9 @@ const ServerView = () => {
                 <div className="flex-1 overflow-hidden">
                   <MessageList messages={messages} channelId={selectedChannel} />
                 </div>
-                <MessageInput channelId={selectedChannel} />
+                <div className="mt-auto">
+                  <MessageInput channelId={selectedChannel} />
+                </div>
               </>
             )}
           </>
