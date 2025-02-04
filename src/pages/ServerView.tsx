@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ChannelList } from "@/components/server/ChannelList";
 import { MessageList } from "@/components/server/MessageList";
 import { MessageInput } from "@/components/server/MessageInput";
+import { Loader2 } from "lucide-react";
 
 const ServerView = () => {
   const { serverId } = useParams();
@@ -12,7 +13,7 @@ const ServerView = () => {
   const queryClient = useQueryClient();
 
   // Fetch server details
-  const { data: server } = useQuery({
+  const { data: server, isLoading: loadingServer } = useQuery({
     queryKey: ['server', serverId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -28,7 +29,7 @@ const ServerView = () => {
   });
 
   // Fetch channels
-  const { data: channels } = useQuery({
+  const { data: channels, isLoading: loadingChannels } = useQuery({
     queryKey: ['channels', serverId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -39,21 +40,13 @@ const ServerView = () => {
         .order('name', { ascending: true });
       
       if (error) throw error;
-      return data as Array<{
-        id: string;
-        name: string;
-        type: 'text' | 'voice';
-        created_at: string;
-        updated_at: string;
-        server_id: string;
-        description: string | null;
-      }>;
+      return data;
     },
     enabled: !!serverId
   });
 
   // Fetch messages for selected channel
-  const { data: messages } = useQuery({
+  const { data: messages, isLoading: loadingMessages } = useQuery({
     queryKey: ['messages', selectedChannel],
     queryFn: async () => {
       if (!selectedChannel) return [];
@@ -61,7 +54,7 @@ const ServerView = () => {
         .from('messages')
         .select('*, sender:profiles(username, avatar_url)')
         .eq('channel_id', selectedChannel)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: true });
       
       if (error) throw error;
       return data;
@@ -69,22 +62,22 @@ const ServerView = () => {
     enabled: !!selectedChannel
   });
 
-  // Set up realtime subscriptions
+  // Set up realtime subscriptions for channels
   useEffect(() => {
-    if (!selectedChannel) return;
+    if (!serverId) return;
 
     const channel = supabase
-      .channel('messages')
+      .channel('channels')
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
-          table: 'messages',
-          filter: `channel_id=eq.${selectedChannel}`,
+          table: 'channels',
+          filter: `server_id=eq.${serverId}`,
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['messages', selectedChannel] });
+          queryClient.invalidateQueries({ queryKey: ['channels', serverId] });
         }
       )
       .subscribe();
@@ -92,7 +85,15 @@ const ServerView = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedChannel, queryClient]);
+  }, [serverId, queryClient]);
+
+  if (loadingServer || loadingChannels) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen">
@@ -105,8 +106,16 @@ const ServerView = () => {
       <div className="flex-1 flex flex-col">
         {selectedChannel ? (
           <>
-            <MessageList messages={messages} />
-            <MessageInput channelId={selectedChannel} />
+            {loadingMessages ? (
+              <div className="flex-1 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            ) : (
+              <>
+                <MessageList messages={messages} channelId={selectedChannel} />
+                <MessageInput channelId={selectedChannel} />
+              </>
+            )}
           </>
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">

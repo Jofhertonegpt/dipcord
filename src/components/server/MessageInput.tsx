@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, Image } from "lucide-react";
+import { Send, Image, Loader2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ interface MessageInputProps {
 
 export const MessageInput = ({ channelId }: MessageInputProps) => {
   const [messageText, setMessageText] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
   const queryClient = useQueryClient();
 
   const sendMessage = useMutation({
@@ -20,23 +21,28 @@ export const MessageInput = ({ channelId }: MessageInputProps) => {
 
       let mediaUrls: string[] = [];
 
-      if (files) {
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          const fileExt = file.name.split('.').pop();
-          const fileName = `${Math.random().toString(36).substring(7)}.${fileExt}`;
-          
-          const { error: uploadError, data } = await supabase.storage
-            .from('messages')
-            .upload(fileName, file);
+      if (files?.length) {
+        setIsUploading(true);
+        try {
+          for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random().toString(36).substring(7)}.${fileExt}`;
+            
+            const { error: uploadError, data } = await supabase.storage
+              .from('messages')
+              .upload(fileName, file);
 
-          if (uploadError) throw uploadError;
-          
-          const { data: { publicUrl } } = supabase.storage
-            .from('messages')
-            .getPublicUrl(fileName);
+            if (uploadError) throw uploadError;
+            
+            const { data: { publicUrl } } = supabase.storage
+              .from('messages')
+              .getPublicUrl(fileName);
 
-          mediaUrls.push(publicUrl);
+            mediaUrls.push(publicUrl);
+          }
+        } finally {
+          setIsUploading(false);
         }
       }
 
@@ -55,6 +61,7 @@ export const MessageInput = ({ channelId }: MessageInputProps) => {
     onSuccess: () => {
       setMessageText("");
       queryClient.invalidateQueries({ queryKey: ['messages', channelId] });
+      toast.success("Message sent successfully");
     },
     onError: (error) => {
       toast.error("Failed to send message");
@@ -76,6 +83,7 @@ export const MessageInput = ({ channelId }: MessageInputProps) => {
           value={messageText}
           onChange={(e) => setMessageText(e.target.value)}
           placeholder="Type a message..."
+          disabled={sendMessage.isPending || isUploading}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
@@ -90,16 +98,25 @@ export const MessageInput = ({ channelId }: MessageInputProps) => {
           multiple
           accept="image/*"
           onChange={handleFileUpload}
+          disabled={sendMessage.isPending || isUploading}
         />
         <Button
           variant="ghost"
           size="icon"
           onClick={() => document.getElementById('file-upload')?.click()}
+          disabled={sendMessage.isPending || isUploading}
         >
           <Image className="h-4 w-4" />
         </Button>
-        <Button onClick={() => sendMessage.mutate(undefined)}>
-          <Send className="h-4 w-4" />
+        <Button 
+          onClick={() => sendMessage.mutate(undefined)}
+          disabled={(!messageText.trim() && !isUploading) || sendMessage.isPending}
+        >
+          {sendMessage.isPending || isUploading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Send className="h-4 w-4" />
+          )}
         </Button>
       </div>
     </div>
