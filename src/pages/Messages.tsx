@@ -35,9 +35,9 @@ const Messages = () => {
       if (!selectedUser) return [];
       const { data: { user } } = await supabase.auth.getUser();
       const { data, error } = await supabase
-        .from("messages")
+        .from("direct_messages")
         .select("*")
-        .or(`and(from_id.eq.${user?.id},to_id.eq.${selectedUser}),and(from_id.eq.${selectedUser},to_id.eq.${user?.id})`)
+        .or(`and(sender_id.eq.${user?.id},receiver_id.eq.${selectedUser}),and(sender_id.eq.${selectedUser},receiver_id.eq.${user?.id})`)
         .order("created_at", { ascending: true });
 
       if (error) throw error;
@@ -51,11 +51,11 @@ const Messages = () => {
     mutationFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       const { error } = await supabase
-        .from("messages")
+        .from("direct_messages")
         .insert([
           {
-            from_id: user?.id,
-            to_id: selectedUser,
+            sender_id: user?.id,
+            receiver_id: selectedUser,
             content: messageText
           }
         ]);
@@ -133,12 +133,12 @@ const Messages = () => {
                     <div
                       key={message.id}
                       className={`flex ${
-                        message.from_id === selectedUser ? "justify-start" : "justify-end"
+                        message.sender_id === selectedUser ? "justify-start" : "justify-end"
                       }`}
                     >
                       <div
                         className={`max-w-[70%] p-3 rounded-lg ${
-                          message.from_id === selectedUser
+                          message.sender_id === selectedUser
                             ? "bg-accent"
                             : "bg-primary text-primary-foreground"
                         }`}

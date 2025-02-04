@@ -12,11 +12,13 @@ import { toast } from "sonner";
 interface Server {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
   created_at: string;
+  avatar_url: string | null;
+  owner_id: string | null;
+  updated_at: string;
+  is_private: boolean | null;
   member_count: number;
-  image_url?: string;
-  created_by: string;
 }
 
 const Servers = () => {
@@ -41,7 +43,7 @@ const Servers = () => {
         .from('servers')
         .select(`
           *,
-          member_count:members(count)
+          member_count:server_members(count)
         `)
         .order('created_at', { ascending: false });
 
@@ -61,7 +63,7 @@ const Servers = () => {
           { 
             name: newServerName, 
             description: newServerDescription,
-            created_by: user.id 
+            owner_id: user.id 
           }
         ]);
 
@@ -81,7 +83,7 @@ const Servers = () => {
       if (!user) return;
 
       const { error } = await supabase
-        .from('members')
+        .from('server_members')
         .insert([
           { 
             server_id: serverId,
@@ -155,7 +157,7 @@ const Servers = () => {
                 <CardHeader>
                   <div className="flex items-center space-x-4">
                     <Avatar>
-                      <AvatarImage src={server.image_url} />
+                      <AvatarImage src={server.avatar_url ?? undefined} />
                       <AvatarFallback>
                         {server.name.substring(0, 2).toUpperCase()}
                       </AvatarFallback>
