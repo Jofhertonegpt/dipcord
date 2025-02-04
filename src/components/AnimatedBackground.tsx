@@ -9,26 +9,20 @@ const AnimatedBackground = () => {
     const ctx = canvas.getContext('2d')!;
     
     const resizeCanvas = () => {
-      // Set canvas dimensions to match device pixel ratio for higher quality
       const pixelRatio = window.devicePixelRatio || 1;
       const width = window.innerWidth;
       const height = window.innerHeight;
       
       canvas.width = width * pixelRatio;
       canvas.height = height * pixelRatio;
-      
-      // Scale canvas back down using CSS
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
-      
-      // Scale the context to ensure correct drawing
       ctx.scale(pixelRatio, pixelRatio);
     };
     
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    // Load and draw the background image
     const backgroundImage = new Image();
     backgroundImage.src = '/lovable-uploads/1507ee57-1fc6-42bd-85b8-056eee1a9857.png';
     
@@ -89,34 +83,37 @@ const AnimatedBackground = () => {
     };
     updateWind();
 
-    // Animation loop with improved image rendering
     const animate = () => {
       const pixelRatio = window.devicePixelRatio || 1;
       ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       
-      // Draw background image with improved quality and cover behavior
+      // Draw background image with true cover behavior
       if (backgroundImage.complete) {
         const canvasAspect = window.innerWidth / window.innerHeight;
         const imageAspect = backgroundImage.width / backgroundImage.height;
         
         let drawWidth = window.innerWidth;
         let drawHeight = window.innerHeight;
-        let x = 0;
-        let y = 0;
-
-        if (canvasAspect > imageAspect) {
-          // Canvas is wider than image aspect ratio
-          drawHeight = window.innerWidth / imageAspect;
-          y = (window.innerHeight - drawHeight) / 2;
-        } else {
+        
+        if (canvasAspect < imageAspect) {
           // Canvas is taller than image aspect ratio
+          drawHeight = window.innerWidth / imageAspect;
+          const scale = window.innerHeight / drawHeight;
+          drawWidth *= scale;
+          drawHeight *= scale;
+        } else {
+          // Canvas is wider than image aspect ratio
           drawWidth = window.innerHeight * imageAspect;
-          x = (window.innerWidth - drawWidth) / 2;
+          const scale = window.innerWidth / drawWidth;
+          drawWidth *= scale;
+          drawHeight *= scale;
         }
         
-        // Use better image rendering
+        const x = (window.innerWidth - drawWidth) / 2;
+        const y = (window.innerHeight - drawHeight) / 2;
+        
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(backgroundImage, x, y, drawWidth, drawHeight);
