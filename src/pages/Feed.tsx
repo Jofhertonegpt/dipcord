@@ -112,28 +112,33 @@ export default function Feed() {
   };
 
   if (isLoading) {
-    return <div className="space-y-4">
-      {[1, 2, 3].map((i) => (
-        <Skeleton key={i} className="h-48 w-full" />
-      ))}
-    </div>;
+    return (
+      <div className="max-w-2xl mx-auto p-4 space-y-6">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="glass-morphism p-6 rounded-lg">
+            <Skeleton className="h-48 w-full" />
+          </div>
+        ))}
+      </div>
+    );
   }
 
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-6">
       {/* Create Post Form */}
-      <div className="bg-card p-4 rounded-lg shadow">
+      <div className="glass-morphism p-6 rounded-lg">
         <textarea
           value={newPostContent}
           onChange={(e) => setNewPostContent(e.target.value)}
           placeholder="What's on your mind?"
-          className="w-full p-2 rounded border mb-2"
+          className="w-full p-3 rounded-lg bg-white/5 border-white/10 border focus:border-white/20 focus:ring-0 text-white placeholder:text-white/50 transition-colors resize-none"
         />
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center mt-4">
           <Button
             variant="outline"
             size="sm"
             onClick={() => document.getElementById("image-input")?.click()}
+            className="hover:bg-white/10"
           >
             <ImagePlus className="h-4 w-4 mr-2" />
             Add Image
@@ -148,6 +153,7 @@ export default function Feed() {
           <Button
             onClick={() => {/* implement createPost */}}
             disabled={!newPostContent.trim()}
+            className="hover:bg-white/10"
           >
             Post
           </Button>
@@ -156,11 +162,11 @@ export default function Feed() {
 
       {/* Posts List */}
       {posts?.map((post) => (
-        <div key={post.id} className="bg-card p-4 rounded-lg shadow">
+        <div key={post.id} className="glass-morphism p-6 rounded-lg transition-all hover:bg-white/10">
           {/* Post Header */}
           <div className="flex items-center mb-4">
             <Avatar 
-              className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity"
+              className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity ring-2 ring-white/10"
               onClick={() => setSelectedProfile(post.profiles.id)}
             >
               <AvatarImage src={post.profiles.avatar_url || ""} />
@@ -170,40 +176,44 @@ export default function Feed() {
               className="ml-3 cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => setSelectedProfile(post.profiles.id)}
             >
-              <p className="font-medium">{post.profiles.username}</p>
+              <p className="font-medium text-white">{post.profiles.username}</p>
             </div>
           </div>
 
           {/* Post Content */}
-          <p className="mb-4">{post.content}</p>
+          <p className="mb-4 text-white/90">{post.content}</p>
 
           {/* Post Media */}
           {post.media_urls && post.media_urls.length > 0 && (
-            <div className="mb-4">
+            <div className="mb-4 rounded-lg overflow-hidden">
               <img
                 src={post.media_urls[0]}
                 alt="Post media"
-                className="rounded-lg max-h-96 w-full object-cover"
+                className="w-full object-cover max-h-96 hover:scale-[1.02] transition-transform"
               />
             </div>
           )}
 
           {/* Post Actions */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 mt-4 pt-4 border-t border-white/10">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => handleLike(post.id)}
-              className={`gap-2 ${
+              className={`gap-2 hover:bg-white/10 ${
                 post.likes.some(like => like.user_id === currentUser?.id)
                   ? "text-red-500"
-                  : ""
+                  : "text-white/70 hover:text-white"
               }`}
             >
               <Heart className="h-4 w-4" />
               {post.likes.length}
             </Button>
-            <Button variant="ghost" size="sm" className="gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="gap-2 text-white/70 hover:text-white hover:bg-white/10"
+            >
               <MessageCircle className="h-4 w-4" />
               {post.comments.length}
             </Button>
