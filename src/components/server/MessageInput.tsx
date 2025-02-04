@@ -1,10 +1,12 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ImagePlus, Loader2, Send, X } from "lucide-react";
+import { ImagePlus, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
+import { FilePreview } from "../message/FilePreview";
+import { useFileUpload } from "../message/useFileUpload";
 
 interface MessageInputProps {
   channelId: string;
@@ -12,30 +14,15 @@ interface MessageInputProps {
 
 export const MessageInput = ({ channelId }: MessageInputProps) => {
   const [content, setContent] = useState("");
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const {
+    selectedFiles,
+    fileInputRef,
+    handleFileSelect,
+    removeFile,
+    uploadFiles,
+    setSelectedFiles
+  } = useFileUpload();
   const queryClient = useQueryClient();
-
-  const uploadFiles = async (files: File[]): Promise<string[]> => {
-    const uploadPromises = files.map(async (file) => {
-      const fileExt = file.name.split('.').pop();
-      const filePath = `${crypto.randomUUID()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('posts')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('posts')
-        .getPublicUrl(filePath);
-
-      return publicUrl;
-    });
-
-    return Promise.all(uploadPromises);
-  };
 
   const sendMessage = useMutation({
     mutationFn: async () => {
@@ -70,15 +57,6 @@ export const MessageInput = ({ channelId }: MessageInputProps) => {
     }
   });
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    setSelectedFiles(prev => [...prev, ...files]);
-  };
-
-  const removeFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
   const handleSubmit = async () => {
     if (!content.trim() && selectedFiles.length === 0) return;
     await sendMessage.mutate();
@@ -93,23 +71,7 @@ export const MessageInput = ({ channelId }: MessageInputProps) => {
 
   return (
     <div className="p-4 bg-background/80 backdrop-blur-sm border-t border-white/10">
-      {selectedFiles.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-2">
-          {selectedFiles.map((file, index) => (
-            <div key={index} className="relative inline-block">
-              <div className="px-3 py-1 rounded bg-white/10 text-white flex items-center gap-2">
-                <span className="text-sm truncate max-w-[150px]">{file.name}</span>
-                <button
-                  onClick={() => removeFile(index)}
-                  className="text-white/60 hover:text-white"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <FilePreview files={selectedFiles} onRemove={removeFile} />
       <div className="flex gap-2">
         <input
           type="file"

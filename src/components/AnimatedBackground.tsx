@@ -1,31 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
-import { useIsMobile } from '@/hooks/use-mobile';
-
-interface BackgroundSettings {
-  color: string;
-  animationSpeed: number;
-  density: number;
-}
+import { useEffect, useRef } from 'react';
+import { BackgroundImage } from './background/BackgroundImage';
+import { drawSnowflake } from './background/Snowflake';
+import { useSnowfall } from './background/useSnowfall';
 
 const AnimatedBackground = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const isMobile = useIsMobile();
-  const [settings, setSettings] = useState<BackgroundSettings>({
-    color: '#ea384c',
-    animationSpeed: 1,
-    density: 250,
-  });
-
-  useEffect(() => {
-    const handleBackgroundUpdate = (event: CustomEvent<BackgroundSettings>) => {
-      setSettings(event.detail);
-    };
-
-    window.addEventListener('updateBackground', handleBackgroundUpdate as EventListener);
-    return () => {
-      window.removeEventListener('updateBackground', handleBackgroundUpdate as EventListener);
-    };
-  }, []);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -39,67 +18,18 @@ const AnimatedBackground = () => {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    // Load background image based on device type
-    const backgroundImage = new Image();
-    backgroundImage.src = isMobile 
-      ? '/lovable-uploads/1da6a61e-48ab-4e29-8985-25a73d9cf296.png'
-      : '/lovable-uploads/a51ed3d1-cea0-4481-bd89-2dc96f2557c3.png';
+    const { backgroundImage, drawBackground } = BackgroundImage({ ctx, canvas });
+    const { settings, snowflakes, windStrength, targetWindStrength, setWindStrength } = useSnowfall(canvas);
 
-    // Enhanced snowflake properties
-    const snowflakes: {
-      x: number;
-      y: number;
-      size: number;
-      speed: number;
-      windOffset: number;
-      windPhase: number;
-      opacity: number;
-    }[] = [];
-    
-    // Initialize snowflakes based on density setting
-    const initializeSnowflakes = () => {
-      snowflakes.length = 0;
-      for (let i = 0; i < settings.density; i++) {
-        snowflakes.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
-          size: Math.random() * 3 + 1,
-          speed: (1 + Math.random() * 2) * settings.animationSpeed,
-          windOffset: Math.random() * 2 - 1,
-          windPhase: Math.random() * Math.PI * 2,
-          opacity: 0.4 + Math.random() * 0.6
-        });
-      }
-    };
-    initializeSnowflakes();
-
-    // Wind properties
-    let windStrength = 0;
-    let targetWindStrength = 0;
-    const updateWind = () => {
-      targetWindStrength = Math.random() * 4 - 2;
-      setTimeout(updateWind, 5000 + Math.random() * 5000);
-    };
-    updateWind();
-
-    // Animation loop
     const animate = () => {
-      // Draw background image with proper scaling
-      const scale = Math.max(
-        canvas.width / backgroundImage.width,
-        canvas.height / backgroundImage.height
-      );
-      const scaledWidth = backgroundImage.width * scale;
-      const scaledHeight = backgroundImage.height * scale;
-      const x = (canvas.width - scaledWidth) / 2;
-      const y = (canvas.height - scaledHeight) / 2;
+      if (!canvas) return;
       
-      ctx.drawImage(backgroundImage, x, y, scaledWidth, scaledHeight);
+      drawBackground();
 
       // Update wind
-      windStrength += (targetWindStrength - windStrength) * 0.002;
+      setWindStrength(prev => prev + (targetWindStrength - prev) * 0.002);
 
-      // Draw enhanced snowflakes with custom color
+      // Update and draw snowflakes
       snowflakes.forEach(flake => {
         flake.windPhase += 0.02 * settings.animationSpeed;
         const windEffect = Math.sin(flake.windPhase) * 0.5;
@@ -114,23 +44,7 @@ const AnimatedBackground = () => {
         if (flake.x > canvas.width) flake.x = 0;
         if (flake.x < 0) flake.x = canvas.width;
 
-        // Convert hex color to RGB for gradient
-        const hex = settings.color.replace('#', '');
-        const r = parseInt(hex.substring(0, 2), 16);
-        const g = parseInt(hex.substring(2, 4), 16);
-        const b = parseInt(hex.substring(4, 6), 16);
-
-        const gradient = ctx.createRadialGradient(
-          flake.x, flake.y, 0,
-          flake.x, flake.y, flake.size
-        );
-        gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${flake.opacity})`);
-        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-        
-        ctx.beginPath();
-        ctx.fillStyle = gradient;
-        ctx.arc(flake.x, flake.y, flake.size, 0, Math.PI * 2);
-        ctx.fill();
+        drawSnowflake(ctx, flake, settings.color);
       });
 
       requestAnimationFrame(animate);
@@ -141,13 +55,10 @@ const AnimatedBackground = () => {
       animate();
     };
 
-    // Reinitialize snowflakes when settings change
-    initializeSnowflakes();
-
     return () => {
       window.removeEventListener('resize', resizeCanvas);
     };
-  }, [isMobile, settings]);
+  }, []);
 
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-[-1]" />;
 };
