@@ -22,6 +22,7 @@ export default function Feed() {
   const [newPostContent, setNewPostContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: posts, isLoading } = useQuery({
     queryKey: ["posts"],
@@ -56,6 +57,80 @@ export default function Feed() {
       return user;
     },
   });
+
+  const createPostMutation = useMutation({
+    mutationFn: async ({ content, imageFile }: { content: string; imageFile: File | null }) => {
+      if (!currentUser) throw new Error("Must be logged in to create posts");
+
+      let mediaUrl: string | undefined;
+
+      if (imageFile) {
+        const fileExt = imageFile.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const { error: uploadError, data } = await supabase.storage
+          .from('posts')
+          .upload(fileName, imageFile);
+
+        if (uploadError) throw uploadError;
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('posts')
+          .getPublicUrl(fileName);
+          
+        mediaUrl = publicUrl;
+      }
+
+      const { error: insertError } = await supabase
+        .from("posts")
+        .insert({
+          content,
+          user_id: currentUser.id,
+          media_urls: mediaUrl ? [mediaUrl] : null,
+        });
+
+      if (insertError) throw insertError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["posts"] });
+      setNewPostContent("");
+      setSelectedImage(null);
+      toast({
+        title: "Success",
+        description: "Post created successfully!",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to create post. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Post creation error:", error);
+    },
+  });
+
+  const handleCreatePost = async () => {
+    if (!currentUser) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to create posts",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!newPostContent.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      await createPostMutation.mutateAsync({
+        content: newPostContent,
+        imageFile: selectedImage,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const toggleLikeMutation = useMutation({
     mutationFn: async ({ postId }: { postId: string }) => {
@@ -151,13 +226,18 @@ export default function Feed() {
             onChange={(e) => setSelectedImage(e.target.files?.[0] || null)}
           />
           <Button
-            onClick={() => {/* implement createPost */}}
-            disabled={!newPostContent.trim()}
+            onClick={handleCreatePost}
+            disabled={!newPostContent.trim() || isSubmitting}
             className="hover:bg-white/10"
           >
-            Post
+            {isSubmitting ? "Posting..." : "Post"}
           </Button>
         </div>
+        {selectedImage && (
+          <div className="mt-4">
+            <p className="text-sm text-white/70">Selected image: {selectedImage.name}</p>
+          </div>
+        )}
       </div>
 
       {/* Posts List */}
