@@ -7,7 +7,7 @@ import { Heart, MessageCircle, ImagePlus } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useState } from "react";
 import { Tables } from "@/integrations/supabase/types";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { ProfileView } from "@/components/profile/ProfileView";
 
 type Post = Tables<"posts"> & {
@@ -31,6 +31,7 @@ export default function Feed() {
         .select(`
           *,
           profiles (
+            id,
             username,
             avatar_url
           ),
@@ -60,7 +61,6 @@ export default function Feed() {
     mutationFn: async ({ postId }: { postId: string }) => {
       if (!currentUser) throw new Error("Must be logged in to like posts");
 
-      // First check if the user has already liked the post
       const { data: existingLike } = await supabase
         .from("likes")
         .select("id")
@@ -69,7 +69,6 @@ export default function Feed() {
         .single();
 
       if (existingLike) {
-        // Unlike: Delete the existing like
         const { error: deleteError } = await supabase
           .from("likes")
           .delete()
@@ -77,7 +76,6 @@ export default function Feed() {
         
         if (deleteError) throw deleteError;
       } else {
-        // Like: Create a new like
         const { error: insertError } = await supabase
           .from("likes")
           .insert({
@@ -213,17 +211,17 @@ export default function Feed() {
         </div>
       ))}
 
-      {/* Profile Dialog */}
-      <Dialog open={!!selectedProfile} onOpenChange={() => setSelectedProfile(null)}>
-        <DialogContent className="sm:max-w-[425px]">
+      {/* Profile Sheet */}
+      <Sheet open={!!selectedProfile} onOpenChange={(open) => !open && setSelectedProfile(null)}>
+        <SheetContent side="right" className="sm:max-w-md">
           {selectedProfile && (
             <ProfileView 
               userId={selectedProfile} 
               onClose={() => setSelectedProfile(null)} 
             />
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
