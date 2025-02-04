@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const AnimatedBackground = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -15,9 +17,11 @@ const AnimatedBackground = () => {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    // Load background image
+    // Load background image based on device type
     const backgroundImage = new Image();
-    backgroundImage.src = '/lovable-uploads/a51ed3d1-cea0-4481-bd89-2dc96f2557c3.png';
+    backgroundImage.src = isMobile 
+      ? '/lovable-uploads/1da6a61e-48ab-4e29-8985-25a73d9cf296.png'
+      : '/lovable-uploads/a51ed3d1-cea0-4481-bd89-2dc96f2557c3.png';
 
     // Enhanced snowflake properties
     const snowflakes: {
@@ -55,8 +59,17 @@ const AnimatedBackground = () => {
 
     // Animation loop
     const animate = () => {
-      // Draw background image
-      ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+      // Draw background image with proper scaling
+      const scale = Math.max(
+        canvas.width / backgroundImage.width,
+        canvas.height / backgroundImage.height
+      );
+      const scaledWidth = backgroundImage.width * scale;
+      const scaledHeight = backgroundImage.height * scale;
+      const x = (canvas.width - scaledWidth) / 2;
+      const y = (canvas.height - scaledHeight) / 2;
+      
+      ctx.drawImage(backgroundImage, x, y, scaledWidth, scaledHeight);
 
       // Update wind
       windStrength += (targetWindStrength - windStrength) * 0.002;
@@ -100,7 +113,7 @@ const AnimatedBackground = () => {
     return () => {
       window.removeEventListener('resize', resizeCanvas);
     };
-  }, []);
+  }, [isMobile]);
 
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-[-1]" />;
 };
