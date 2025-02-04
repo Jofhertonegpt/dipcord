@@ -18,8 +18,8 @@ interface Profile {
   full_name: string | null;
   avatar_url: string | null;
   bio: string | null;
-  _count: number;
-  following: number;
+  _count: { count: number }[];
+  following: { count: number }[];
 }
 
 export const ProfileView = ({ userId, onClose }: ProfileViewProps) => {
@@ -145,11 +145,11 @@ export const ProfileView = ({ userId, onClose }: ProfileViewProps) => {
         )}
         <div className="flex justify-center gap-8 text-center">
           <div>
-            <p className="text-lg font-semibold text-white">{profile._count}</p>
+            <p className="text-lg font-semibold text-white">{profile._count[0]?.count || 0}</p>
             <p className="text-sm text-white/60">Followers</p>
           </div>
           <div>
-            <p className="text-lg font-semibold text-white">{profile.following}</p>
+            <p className="text-lg font-semibold text-white">{profile.following[0]?.count || 0}</p>
             <p className="text-sm text-white/60">Following</p>
           </div>
         </div>
