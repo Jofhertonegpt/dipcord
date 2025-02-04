@@ -50,6 +50,7 @@ const ServerView = () => {
       if (error) throw error;
       return data;
     },
+    enabled: !!serverId
   });
 
   // Fetch channels
@@ -66,6 +67,7 @@ const ServerView = () => {
       if (error) throw error;
       return data as Channel[];
     },
+    enabled: !!serverId
   });
 
   // Fetch messages for selected channel
@@ -82,7 +84,7 @@ const ServerView = () => {
       if (error) throw error;
       return data as Message[];
     },
-    enabled: !!selectedChannel,
+    enabled: !!selectedChannel
   });
 
   // Create new channel mutation
