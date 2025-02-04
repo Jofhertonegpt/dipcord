@@ -18,6 +18,18 @@ interface Channel {
   description: string | null;
 }
 
+interface Message {
+  id: string;
+  content: string;
+  created_at: string;
+  sender: {
+    id: string;
+    username: string;
+    avatar_url: string | null;
+  } | null;
+  media_urls: string[] | null;
+}
+
 const ServerView = () => {
   const { serverId } = useParams();
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
@@ -65,12 +77,12 @@ const ServerView = () => {
       if (!selectedChannel) return [];
       const { data, error } = await supabase
         .from('messages')
-        .select('*, sender:profiles(username, avatar_url)')
+        .select('*, sender:profiles(id, username, avatar_url)')
         .eq('channel_id', selectedChannel)
         .order('created_at', { ascending: true });
       
       if (error) throw error;
-      return data;
+      return data as Message[];
     },
     enabled: !!selectedChannel
   });
