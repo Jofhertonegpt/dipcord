@@ -8,6 +8,16 @@ import { MessageInput } from "@/components/server/MessageInput";
 import { Loader2, PanelLeftIcon, PanelRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+interface Channel {
+  id: string;
+  name: string;
+  type: 'text' | 'voice';
+  created_at: string;
+  updated_at: string;
+  server_id: string;
+  description: string | null;
+}
+
 const ServerView = () => {
   const { serverId } = useParams();
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
@@ -47,7 +57,7 @@ const ServerView = () => {
       return data?.map(channel => ({
         ...channel,
         type: channel.type === 'voice' ? 'voice' : 'text'
-      })) || [];
+      } as Channel)) || [];
     },
     enabled: !!serverId
   });
