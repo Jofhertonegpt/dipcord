@@ -9,9 +9,22 @@ const AnimatedBackground = () => {
     const ctx = canvas.getContext('2d')!;
     
     const resizeCanvas = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      // Set canvas dimensions to match device pixel ratio for higher quality
+      const pixelRatio = window.devicePixelRatio || 1;
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      
+      canvas.width = width * pixelRatio;
+      canvas.height = height * pixelRatio;
+      
+      // Scale canvas back down using CSS
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      
+      // Scale the context to ensure correct drawing
+      ctx.scale(pixelRatio, pixelRatio);
     };
+    
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
@@ -33,8 +46,8 @@ const AnimatedBackground = () => {
     const numStars = 300;
     for (let i = 0; i < numStars; i++) {
       stars.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * (canvas.height * 0.4), // Keep stars in the upper portion
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * (window.innerHeight * 0.4),
         size: Math.random() * 2 + 0.5,
         brightness: Math.random(),
         twinkleSpeed: 0.02 + Math.random() * 0.03,
@@ -57,8 +70,8 @@ const AnimatedBackground = () => {
     const numSnowflakes = 250;
     for (let i = 0; i < numSnowflakes; i++) {
       snowflakes.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
         size: Math.random() * 3 + 1,
         speed: 1 + Math.random() * 2,
         windOffset: Math.random() * 2 - 1,
@@ -76,23 +89,28 @@ const AnimatedBackground = () => {
     };
     updateWind();
 
-    // Animation loop
+    // Animation loop with improved image rendering
     const animate = () => {
-      // Clear canvas
+      const pixelRatio = window.devicePixelRatio || 1;
+      ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       
-      // Draw background image
+      // Draw background image with improved quality
       if (backgroundImage.complete) {
         // Calculate dimensions to cover the canvas while maintaining aspect ratio
         const scale = Math.max(
-          canvas.width / backgroundImage.width,
-          canvas.height / backgroundImage.height
+          window.innerWidth / backgroundImage.width,
+          window.innerHeight / backgroundImage.height
         );
         const width = backgroundImage.width * scale;
         const height = backgroundImage.height * scale;
-        const x = (canvas.width - width) / 2;
-        const y = (canvas.height - height) / 2;
+        const x = (window.innerWidth - width) / 2;
+        const y = (window.innerHeight - height) / 2;
         
+        // Use better image rendering
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(backgroundImage, x, y, width, height);
       }
 
@@ -119,12 +137,12 @@ const AnimatedBackground = () => {
         flake.x += (windStrength + windEffect + flake.windOffset) * (flake.size / 2);
         flake.y += flake.speed;
 
-        if (flake.y > canvas.height) {
+        if (flake.y > window.innerHeight) {
           flake.y = -5;
-          flake.x = Math.random() * canvas.width;
+          flake.x = Math.random() * window.innerWidth;
         }
-        if (flake.x > canvas.width) flake.x = 0;
-        if (flake.x < 0) flake.x = canvas.width;
+        if (flake.x > window.innerWidth) flake.x = 0;
+        if (flake.x < 0) flake.x = window.innerWidth;
 
         const gradient = ctx.createRadialGradient(
           flake.x, flake.y, 0,
