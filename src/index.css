@@ -1,28 +1,30 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 240 10% 3.9%;
+    --background: 220 20% 10%;
     --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
+    --card: 220 20% 12%;
     --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
+    --popover: 220 20% 12%;
     --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
+    --primary: 0 72% 51%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 142 47% 35%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
+    --muted: 220 20% 20%;
+    --muted-foreground: 220 20% 70%;
+    --accent: 220 20% 20%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
+    --border: 220 20% 20%;
+    --input: 220 20% 20%;
+    --ring: 220 20% 70%;
     --radius: 0.75rem;
   }
 }
@@ -33,8 +35,24 @@
   }
   
   body {
-    @apply bg-background text-foreground antialiased overflow-x-hidden min-h-screen;
+    @apply bg-background text-foreground antialiased overflow-x-hidden min-h-screen font-sans;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
+  }
+
+  h1 {
+    @apply text-4xl font-bold tracking-tight;
+  }
+
+  h2 {
+    @apply text-3xl font-semibold tracking-tight;
+  }
+
+  h3 {
+    @apply text-2xl font-semibold tracking-tight;
+  }
+
+  p {
+    @apply leading-relaxed;
   }
 }
 
@@ -45,5 +63,9 @@
   
   .hover-scale {
     @apply transition-transform duration-200 hover:scale-105;
+  }
+
+  .christmas-gradient {
+    @apply bg-gradient-to-br from-[#ea384c] via-[#34a853] to-[#fbbc05];
   }
 }
