@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ProfileView } from "@/components/profile/ProfileView";
 
 interface Message {
@@ -88,7 +88,7 @@ export const MessageList = ({ channelId }: MessageListProps) => {
         {messages?.map((message) => (
           <div key={message.id} className="flex items-start space-x-4 group hover:bg-white/5 p-2 rounded-lg transition-colors">
             <Dialog>
-              <DialogTrigger>
+              <DialogTrigger asChild>
                 <Avatar className="cursor-pointer">
                   <AvatarImage src={message.sender?.avatar_url ?? undefined} />
                   <AvatarFallback>
@@ -97,6 +97,7 @@ export const MessageList = ({ channelId }: MessageListProps) => {
                 </Avatar>
               </DialogTrigger>
               <DialogContent>
+                <DialogTitle>User Profile</DialogTitle>
                 {message.sender && <ProfileView userId={message.sender.id} />}
               </DialogContent>
             </Dialog>

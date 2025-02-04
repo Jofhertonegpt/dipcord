@@ -12,6 +12,16 @@ interface ProfileViewProps {
   onClose?: () => void;
 }
 
+interface Profile {
+  id: string;
+  username: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  _count: number;
+  following: number;
+}
+
 export const ProfileView = ({ userId, onClose }: ProfileViewProps) => {
   const queryClient = useQueryClient();
   const [isFollowing, setIsFollowing] = useState(false);
@@ -19,6 +29,8 @@ export const ProfileView = ({ userId, onClose }: ProfileViewProps) => {
   const { data: profile, isLoading } = useQuery({
     queryKey: ['profile', userId],
     queryFn: async () => {
+      if (!userId) throw new Error("User ID is required");
+      
       const { data: profile, error } = await supabase
         .from('profiles')
         .select(`
@@ -27,16 +39,19 @@ export const ProfileView = ({ userId, onClose }: ProfileViewProps) => {
           following: follows!follows_follower_id_fkey(count)
         `)
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-      return profile;
+      return profile as Profile;
     },
+    enabled: !!userId,
   });
 
   const { data: followStatus } = useQuery({
     queryKey: ['follow-status', userId],
     queryFn: async () => {
+      if (!userId) return false;
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return false;
 
@@ -51,10 +66,13 @@ export const ProfileView = ({ userId, onClose }: ProfileViewProps) => {
       setIsFollowing(!!data);
       return !!data;
     },
+    enabled: !!userId,
   });
 
   const followMutation = useMutation({
     mutationFn: async () => {
+      if (!userId) throw new Error("User ID is required");
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
