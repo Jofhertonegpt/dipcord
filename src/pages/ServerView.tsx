@@ -5,11 +5,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { ChannelList } from "@/components/server/ChannelList";
 import { MessageList } from "@/components/server/MessageList";
 import { MessageInput } from "@/components/server/MessageInput";
-import { Loader2 } from "lucide-react";
+import { Loader2, PanelLeftIcon, PanelRightIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const ServerView = () => {
   const { serverId } = useParams();
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const queryClient = useQueryClient();
 
   // Fetch server details
@@ -100,14 +102,33 @@ const ServerView = () => {
   }
 
   return (
-    <div className="flex h-screen">
-      <ChannelList
-        serverId={serverId!}
-        channels={channels}
-        selectedChannel={selectedChannel}
-        onSelectChannel={setSelectedChannel}
-      />
-      <div className="flex-1 flex flex-col">
+    <div className="flex h-screen bg-background">
+      {/* Sidebar */}
+      <div 
+        className={`transition-all duration-300 ${
+          sidebarOpen ? 'w-64' : 'w-0'
+        } h-full relative`}
+      >
+        {sidebarOpen && (
+          <ChannelList
+            serverId={serverId!}
+            channels={channels}
+            selectedChannel={selectedChannel}
+            onSelectChannel={setSelectedChannel}
+          />
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute -right-10 top-4"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+        >
+          {sidebarOpen ? <PanelLeftIcon /> : <PanelRightIcon />}
+        </Button>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col h-full">
         {selectedChannel ? (
           <>
             {loadingMessages ? (
@@ -116,8 +137,12 @@ const ServerView = () => {
               </div>
             ) : (
               <>
-                <MessageList messages={messages} channelId={selectedChannel} />
-                <MessageInput channelId={selectedChannel} />
+                <div className="flex-1 overflow-hidden">
+                  <MessageList messages={messages} channelId={selectedChannel} />
+                </div>
+                <div className="p-4 border-t border-border">
+                  <MessageInput channelId={selectedChannel} />
+                </div>
               </>
             )}
           </>
