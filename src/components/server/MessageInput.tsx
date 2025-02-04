@@ -79,7 +79,7 @@ export const MessageInput = ({ channelId }: MessageInputProps) => {
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
-              sendMessage.mutate();
+              sendMessage.mutate(undefined);
             }
           }}
         />
@@ -98,7 +98,7 @@ export const MessageInput = ({ channelId }: MessageInputProps) => {
         >
           <Image className="h-4 w-4" />
         </Button>
-        <Button onClick={() => sendMessage.mutate()}>
+        <Button onClick={() => sendMessage.mutate(undefined)}>
           <Send className="h-4 w-4" />
         </Button>
       </div>
