@@ -1,9 +1,31 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
+
+interface BackgroundSettings {
+  color: string;
+  animationSpeed: number;
+  density: number;
+}
 
 const AnimatedBackground = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isMobile = useIsMobile();
+  const [settings, setSettings] = useState<BackgroundSettings>({
+    color: '#ea384c',
+    animationSpeed: 1,
+    density: 250,
+  });
+
+  useEffect(() => {
+    const handleBackgroundUpdate = (event: CustomEvent<BackgroundSettings>) => {
+      setSettings(event.detail);
+    };
+
+    window.addEventListener('updateBackground', handleBackgroundUpdate as EventListener);
+    return () => {
+      window.removeEventListener('updateBackground', handleBackgroundUpdate as EventListener);
+    };
+  }, []);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -34,19 +56,22 @@ const AnimatedBackground = () => {
       opacity: number;
     }[] = [];
     
-    // Initialize more detailed snowflakes
-    const numSnowflakes = 250;
-    for (let i = 0; i < numSnowflakes; i++) {
-      snowflakes.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        size: Math.random() * 3 + 1,
-        speed: 1 + Math.random() * 2,
-        windOffset: Math.random() * 2 - 1,
-        windPhase: Math.random() * Math.PI * 2,
-        opacity: 0.4 + Math.random() * 0.6
-      });
-    }
+    // Initialize snowflakes based on density setting
+    const initializeSnowflakes = () => {
+      snowflakes.length = 0;
+      for (let i = 0; i < settings.density; i++) {
+        snowflakes.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          size: Math.random() * 3 + 1,
+          speed: (1 + Math.random() * 2) * settings.animationSpeed,
+          windOffset: Math.random() * 2 - 1,
+          windPhase: Math.random() * Math.PI * 2,
+          opacity: 0.4 + Math.random() * 0.6
+        });
+      }
+    };
+    initializeSnowflakes();
 
     // Wind properties
     let windStrength = 0;
@@ -74,12 +99,12 @@ const AnimatedBackground = () => {
       // Update wind
       windStrength += (targetWindStrength - windStrength) * 0.002;
 
-      // Draw enhanced snowflakes
+      // Draw enhanced snowflakes with custom color
       snowflakes.forEach(flake => {
-        flake.windPhase += 0.02;
+        flake.windPhase += 0.02 * settings.animationSpeed;
         const windEffect = Math.sin(flake.windPhase) * 0.5;
         
-        flake.x += (windStrength + windEffect + flake.windOffset) * (flake.size / 2);
+        flake.x += (windStrength + windEffect + flake.windOffset) * (flake.size / 2) * settings.animationSpeed;
         flake.y += flake.speed;
 
         if (flake.y > canvas.height) {
@@ -89,11 +114,17 @@ const AnimatedBackground = () => {
         if (flake.x > canvas.width) flake.x = 0;
         if (flake.x < 0) flake.x = canvas.width;
 
+        // Convert hex color to RGB for gradient
+        const hex = settings.color.replace('#', '');
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+
         const gradient = ctx.createRadialGradient(
           flake.x, flake.y, 0,
           flake.x, flake.y, flake.size
         );
-        gradient.addColorStop(0, `rgba(255, 255, 255, ${flake.opacity})`);
+        gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${flake.opacity})`);
         gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
         
         ctx.beginPath();
@@ -110,10 +141,13 @@ const AnimatedBackground = () => {
       animate();
     };
 
+    // Reinitialize snowflakes when settings change
+    initializeSnowflakes();
+
     return () => {
       window.removeEventListener('resize', resizeCanvas);
     };
-  }, [isMobile]);
+  }, [isMobile, settings]);
 
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-[-1]" />;
 };
