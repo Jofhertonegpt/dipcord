@@ -10,7 +10,7 @@ import { toast } from "sonner";
 type FormData = {
   email: string;
   password: string;
-  fullName?: string;
+  username?: string;
 };
 
 export const Auth = () => {
@@ -22,15 +22,33 @@ export const Auth = () => {
     setIsLoading(true);
     try {
       if (isSignUp) {
+        if (!data.username) {
+          toast.error("Username is required");
+          return;
+        }
+        
+        // First check if username is available
+        const { data: existingUsers } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('username', data.username)
+          .single();
+
+        if (existingUsers) {
+          toast.error("Username is already taken");
+          return;
+        }
+
         const { error } = await supabase.auth.signUp({
           email: data.email,
           password: data.password,
           options: {
             data: {
-              full_name: data.fullName,
+              username: data.username,
             },
           },
         });
+        
         if (error) throw error;
         toast.success("Check your email to confirm your account!");
       } else {
@@ -60,12 +78,25 @@ export const Auth = () => {
         <CardContent className="space-y-4">
           {isSignUp && (
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
+              <Label htmlFor="username">Username</Label>
               <Input
-                id="fullName"
+                id="username"
                 type="text"
-                {...register("fullName", { required: isSignUp })}
+                {...register("username", { 
+                  required: isSignUp,
+                  pattern: {
+                    value: /^[a-zA-Z0-9_]+$/,
+                    message: "Username can only contain letters, numbers, and underscores"
+                  },
+                  minLength: {
+                    value: 3,
+                    message: "Username must be at least 3 characters long"
+                  }
+                })}
               />
+              {errors.username && (
+                <p className="text-sm text-red-500">{errors.username.message}</p>
+              )}
             </div>
           )}
           <div className="space-y-2">
@@ -75,14 +106,26 @@ export const Auth = () => {
               type="email"
               {...register("email", { required: true })}
             />
+            {errors.email && (
+              <p className="text-sm text-red-500">Email is required</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input
               id="password"
               type="password"
-              {...register("password", { required: true, minLength: 6 })}
+              {...register("password", { 
+                required: true,
+                minLength: {
+                  value: 6,
+                  message: "Password must be at least 6 characters long"
+                }
+              })}
             />
+            {errors.password && (
+              <p className="text-sm text-red-500">{errors.password.message}</p>
+            )}
           </div>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
