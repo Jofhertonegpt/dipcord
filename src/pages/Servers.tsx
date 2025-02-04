@@ -27,93 +27,6 @@ const Servers = () => {
   const [newServerName, setNewServerName] = useState("");
   const [newServerDescription, setNewServerDescription] = useState("");
 
-  const createServer = useMutation({
-    mutationFn: async ({ name, description }: { name: string; description: string }) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      // Ensure profile exists
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (!profile) {
-        // Create profile if it doesn't exist
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .insert([{
-            id: user.id,
-            username: user.email?.split('@')[0] || 'user',
-            full_name: user.email
-          }]);
-        
-        if (insertError) throw insertError;
-      } else if (profileError) {
-        throw profileError;
-      }
-
-      const { error } = await supabase
-        .from('servers')
-        .insert([
-          { 
-            name,
-            description,
-            owner_id: user.id 
-          }
-        ]);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      setNewServerName("");
-      setNewServerDescription("");
-      queryClient.invalidateQueries({ queryKey: ['servers'] });
-      toast.success("Server created successfully!");
-    },
-    onError: (error: Error) => {
-      toast.error(`Error creating server: ${error.message}`);
-    }
-  });
-
-  const joinServer = useMutation({
-    mutationFn: async (serverId: string) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      const { error } = await supabase
-        .from('server_members')
-        .insert([
-          { 
-            server_id: serverId,
-            user_id: user.id 
-          }
-        ]);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['servers'] });
-      toast.success("Joined server successfully!");
-    },
-    onError: (error: Error) => {
-      toast.error(`Error joining server: ${error.message}`);
-    }
-  });
-
-  const handleJoinServer = async (serverId: string) => {
-    await joinServer.mutate(serverId);
-  };
-
-  const handleCreateServer = async () => {
-    if (!newServerName.trim() || !newServerDescription.trim()) return;
-    await createServer.mutate({ 
-      name: newServerName, 
-      description: newServerDescription 
-    });
-  };
-
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -143,6 +56,83 @@ const Servers = () => {
       })) as Server[];
     },
   });
+
+  const createServer = useMutation({
+    mutationFn: async ({ name, description }: { name: string; description: string }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!profile) {
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert([{
+            id: user.id,
+            username: user.email?.split('@')[0] || 'user',
+            full_name: user.email
+          }]);
+        
+        if (insertError) throw insertError;
+      } else if (profileError) {
+        throw profileError;
+      }
+
+      const { error } = await supabase
+        .from('servers')
+        .insert([{ 
+          name,
+          description,
+          owner_id: user.id 
+        }]);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setNewServerName("");
+      setNewServerDescription("");
+      queryClient.invalidateQueries({ queryKey: ['servers'] });
+      toast.success("Server created successfully!");
+    },
+    onError: (error: Error) => {
+      toast.error(`Error creating server: ${error.message}`);
+    }
+  });
+
+  const joinServer = useMutation({
+    mutationFn: async (serverId: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from('server_members')
+        .insert([{ 
+          server_id: serverId,
+          user_id: user.id 
+        }]);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['servers'] });
+      toast.success("Joined server successfully!");
+    },
+    onError: (error: Error) => {
+      toast.error(`Error joining server: ${error.message}`);
+    }
+  });
+
+  const handleCreateServer = async () => {
+    if (!newServerName.trim() || !newServerDescription.trim()) return;
+    await createServer.mutate({ 
+      name: newServerName, 
+      description: newServerDescription 
+    });
+  };
 
   const handleSignOut = async () => {
     const { error } = await supabase.auth.signOut();
@@ -185,7 +175,7 @@ const Servers = () => {
           <CardFooter>
             <Button 
               onClick={handleCreateServer} 
-              disabled={!newServerName.trim() || !newServerDescription.trim()}
+              disabled={!newServerName.trim() || !newServerDescription.trim() || createServer.isPending}
               className="hover-scale w-full"
             >
               {createServer.isPending ? (
@@ -226,13 +216,18 @@ const Servers = () => {
                     {server.member_count} members
                   </div>
                 </CardContent>
-                <CardFooter className="mt-auto">
+                <CardFooter>
                   <Button 
                     className="w-full hover:bg-white/10" 
                     variant="outline"
-                    onClick={() => handleJoinServer(server.id)}
+                    onClick={() => joinServer.mutate(server.id)}
+                    disabled={joinServer.isPending}
                   >
-                    Join Server
+                    {joinServer.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      "Join Server"
+                    )}
                   </Button>
                 </CardFooter>
               </Card>
