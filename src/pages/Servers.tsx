@@ -155,36 +155,43 @@ const Servers = () => {
   };
 
   return (
-    <div className="min-h-screen">
-      <div className="container mx-auto max-w-4xl p-4">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold">Servers</h1>
-          <Button variant="ghost" onClick={handleSignOut}>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto max-w-4xl p-6 space-y-8">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Servers</h1>
+          <Button 
+            variant="ghost" 
+            onClick={handleSignOut}
+            className="hover:bg-secondary"
+          >
             <LogOut className="h-4 w-4 mr-2" />
             Sign Out
           </Button>
         </div>
 
-        <Card className="mb-8">
+        <Card className="card-gradient border-border">
           <CardHeader>
-            <CardTitle>Create a New Server</CardTitle>
+            <CardTitle className="text-xl text-card-foreground">Create a New Server</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <Input
               placeholder="Server name"
               value={newServerName}
               onChange={(e) => setNewServerName(e.target.value)}
+              className="bg-background/50"
             />
             <Input
               placeholder="Server description"
               value={newServerDescription}
               onChange={(e) => setNewServerDescription(e.target.value)}
+              className="bg-background/50"
             />
           </CardContent>
           <CardFooter>
             <Button 
               onClick={handleCreateServer} 
               disabled={!newServerName.trim() || !newServerDescription.trim()}
+              className="w-full sm:w-auto"
             >
               <Plus className="h-4 w-4 mr-2" />
               Create Server
@@ -194,22 +201,22 @@ const Servers = () => {
 
         {isLoading ? (
           <div className="flex justify-center p-8">
-            <Loader2 className="h-8 w-8 animate-spin" />
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-2">
             {servers?.map((server) => (
-              <Card key={server.id} className="flex flex-col">
+              <Card key={server.id} className="card-gradient border-border flex flex-col fade-in">
                 <CardHeader>
                   <div className="flex items-center space-x-4">
                     <Avatar>
                       <AvatarImage src={server.avatar_url ?? undefined} />
-                      <AvatarFallback>
+                      <AvatarFallback className="bg-secondary text-secondary-foreground">
                         {server.name.substring(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <CardTitle>{server.name}</CardTitle>
+                      <CardTitle className="text-lg text-card-foreground">{server.name}</CardTitle>
                       <p className="text-sm text-muted-foreground">{server.description}</p>
                     </div>
                   </div>
@@ -222,7 +229,7 @@ const Servers = () => {
                 </CardContent>
                 <CardFooter className="mt-auto">
                   <Button 
-                    className="w-full" 
+                    className="w-full hover:bg-secondary" 
                     variant="outline"
                     onClick={() => handleJoinServer(server.id)}
                   >
