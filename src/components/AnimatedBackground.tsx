@@ -15,27 +15,10 @@ const AnimatedBackground = () => {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    // Pine tree properties with more realistic proportions
-    const trees: {
-      x: number;
-      y: number;
-      height: number;
-      layers: number;
-      variation: number;
-    }[] = [];
+    // Load and draw the background image
+    const backgroundImage = new Image();
+    backgroundImage.src = '/lovable-uploads/53fde225-7320-4f9f-b935-8e2da650ffbe.png';
     
-    // Initialize trees with varied heights and positions
-    const numTrees = Math.floor(canvas.width / 100);
-    for (let i = 0; i < numTrees; i++) {
-      trees.push({
-        x: (i * canvas.width / numTrees) + (Math.random() * 80 - 40),
-        y: canvas.height + 20,
-        height: 200 + Math.random() * 150,
-        layers: 7 + Math.floor(Math.random() * 4),
-        variation: Math.random()
-      });
-    }
-
     // Star properties with enhanced twinkling
     const stars: {
       x: number;
@@ -51,7 +34,7 @@ const AnimatedBackground = () => {
     for (let i = 0; i < numStars; i++) {
       stars.push({
         x: Math.random() * canvas.width,
-        y: Math.random() * (canvas.height * 0.8),
+        y: Math.random() * (canvas.height * 0.4), // Keep stars in the upper portion
         size: Math.random() * 2 + 0.5,
         brightness: Math.random(),
         twinkleSpeed: 0.02 + Math.random() * 0.03,
@@ -93,60 +76,25 @@ const AnimatedBackground = () => {
     };
     updateWind();
 
-    // Draw a more realistic pine tree
-    const drawTree = (x: number, y: number, height: number, layers: number, variation: number) => {
-      const baseWidth = height * 0.4;
-      const layerHeight = height / layers;
-      
-      // Draw trunk with more natural color
-      ctx.fillStyle = '#2A1B0A';
-      const trunkWidth = height * 0.05;
-      ctx.fillRect(x - trunkWidth/2, y - height * 0.2, trunkWidth, height * 0.2);
-      
-      // Draw tree layers with more natural variation
-      for (let i = 0; i < layers; i++) {
-        const currentHeight = y - (i * layerHeight);
-        const layerWidth = (baseWidth * (layers - i)) / layers;
-        const offsetX = Math.sin(i + variation) * (layerWidth * 0.1);
-        
-        // Draw main foliage with darker base
-        ctx.fillStyle = '#0A2F1F';
-        ctx.beginPath();
-        ctx.moveTo(x - layerWidth/2 + offsetX, currentHeight);
-        ctx.lineTo(x + layerWidth/2 + offsetX, currentHeight);
-        ctx.lineTo(x + offsetX, currentHeight - layerHeight * 1.2);
-        ctx.closePath();
-        ctx.fill();
-        
-        // Add snow with subtle shadows
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-        ctx.beginPath();
-        ctx.moveTo(x - layerWidth/2 + offsetX + 5, currentHeight - 2);
-        ctx.lineTo(x + layerWidth/2 + offsetX - 5, currentHeight - 2);
-        ctx.lineTo(x + offsetX, currentHeight - layerHeight * 1.1);
-        ctx.closePath();
-        ctx.fill();
-        
-        // Add highlights for depth
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.beginPath();
-        ctx.moveTo(x + offsetX, currentHeight - layerHeight * 1.1);
-        ctx.lineTo(x + layerWidth/4 + offsetX, currentHeight - layerHeight * 0.5);
-        ctx.lineTo(x + offsetX, currentHeight - layerHeight * 0.8);
-        ctx.closePath();
-        ctx.fill();
-      }
-    };
-
     // Animation loop
     const animate = () => {
-      // Draw deep night sky gradient
-      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      gradient.addColorStop(0, '#0A0A2F');
-      gradient.addColorStop(0.5, '#1A1A4F');
-      gradient.addColorStop(1, '#2A2A6F');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw background image
+      if (backgroundImage.complete) {
+        // Calculate dimensions to cover the canvas while maintaining aspect ratio
+        const scale = Math.max(
+          canvas.width / backgroundImage.width,
+          canvas.height / backgroundImage.height
+        );
+        const width = backgroundImage.width * scale;
+        const height = backgroundImage.height * scale;
+        const x = (canvas.width - width) / 2;
+        const y = (canvas.height - height) / 2;
+        
+        ctx.drawImage(backgroundImage, x, y, width, height);
+      }
 
       // Draw enhanced twinkling stars
       stars.forEach(star => {
@@ -162,11 +110,6 @@ const AnimatedBackground = () => {
 
       // Update wind
       windStrength += (targetWindStrength - windStrength) * 0.002;
-
-      // Draw refined trees
-      trees.forEach(tree => {
-        drawTree(tree.x, tree.y, tree.height, tree.layers, tree.variation);
-      });
 
       // Draw enhanced snowflakes
       snowflakes.forEach(flake => {
