@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Users, LogOut } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,8 +23,63 @@ interface Server {
 
 const Servers = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [newServerName, setNewServerName] = useState("");
   const [newServerDescription, setNewServerDescription] = useState("");
+
+  const createServer = useMutation({
+    mutationFn: async ({ name, description }: { name: string; description: string }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Ensure profile exists
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile) {
+        // Create profile if it doesn't exist
+        await supabase
+          .from('profiles')
+          .insert([{
+            id: user.id,
+            username: user.email?.split('@')[0] || 'user',
+            full_name: user.email
+          }]);
+      }
+
+      const { error } = await supabase
+        .from('servers')
+        .insert([
+          { 
+            name,
+            description,
+            owner_id: user.id 
+          }
+        ]);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setNewServerName("");
+      setNewServerDescription("");
+      queryClient.invalidateQueries({ queryKey: ['servers'] });
+      toast.success("Server created successfully!");
+    },
+    onError: (error: Error) => {
+      toast.error(`Error creating server: ${error.message}`);
+    }
+  });
+
+  const handleCreateServer = async () => {
+    if (!newServerName.trim() || !newServerDescription.trim()) return;
+    await createServer.mutate({ 
+      name: newServerName, 
+      description: newServerDescription 
+    });
+  };
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -56,53 +111,6 @@ const Servers = () => {
       })) as Server[];
     },
   });
-
-  const handleCreateServer = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { error } = await supabase
-        .from('servers')
-        .insert([
-          { 
-            name: newServerName, 
-            description: newServerDescription,
-            owner_id: user.id 
-          }
-        ]);
-
-      if (error) throw error;
-      
-      setNewServerName("");
-      setNewServerDescription("");
-      toast.success("Server created successfully!");
-    } catch (error: any) {
-      toast.error(error.message);
-    }
-  };
-
-  const handleJoinServer = async (serverId: string) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { error } = await supabase
-        .from('server_members')
-        .insert([
-          { 
-            server_id: serverId,
-            user_id: user.id 
-          }
-        ]);
-
-      if (error) throw error;
-      
-      toast.success("Joined server successfully!");
-    } catch (error: any) {
-      toast.error(error.message);
-    }
-  };
 
   const handleSignOut = async () => {
     const { error } = await supabase.auth.signOut();

@@ -18,10 +18,30 @@ const Messages = () => {
     queryKey: ["users"],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Ensure current user's profile exists
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile) {
+        // Create profile if it doesn't exist
+        await supabase
+          .from('profiles')
+          .insert([{
+            id: user.id,
+            username: user.email?.split('@')[0] || 'user',
+            full_name: user.email
+          }]);
+      }
+
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .neq("id", user?.id);
+        .neq("id", user.id);
 
       if (error) throw error;
       return data;

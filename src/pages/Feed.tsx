@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Heart, MessageSquare, LogOut } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,6 +23,7 @@ interface Post {
 
 const Feed = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [newPost, setNewPost] = useState("");
 
   useEffect(() => {
@@ -55,24 +56,53 @@ const Feed = () => {
     },
   });
 
-  const handleCreatePost = async () => {
-    try {
+  const createPost = useMutation({
+    mutationFn: async (content: string) => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) throw new Error("User not authenticated");
 
+      // First ensure profile exists
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile) {
+        // Create profile if it doesn't exist
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert([{
+            id: user.id,
+            username: user.email?.split('@')[0] || 'user',
+            full_name: user.email
+          }]);
+        
+        if (insertError) throw insertError;
+      }
+
+      // Now create the post
       const { error } = await supabase
         .from('posts')
         .insert([
-          { content: newPost, user_id: user.id }
+          { content, user_id: user.id }
         ]);
 
       if (error) throw error;
-      
+    },
+    onSuccess: () => {
       setNewPost("");
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
       toast.success("Post created successfully!");
-    } catch (error: any) {
-      toast.error(error.message);
+    },
+    onError: (error: Error) => {
+      toast.error(`Error creating post: ${error.message}`);
     }
+  });
+
+  const handleCreatePost = async () => {
+    if (!newPost.trim()) return;
+    await createPost.mutate(newPost);
   };
 
   const handleSignOut = async () => {
@@ -105,7 +135,14 @@ const Feed = () => {
             />
           </CardContent>
           <CardFooter className="flex justify-end">
-            <Button onClick={handleCreatePost} disabled={!newPost.trim()} className="hover-scale">
+            <Button 
+              onClick={handleCreatePost} 
+              disabled={!newPost.trim() || createPost.isPending}
+              className="hover-scale"
+            >
+              {createPost.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
               Post
             </Button>
           </CardFooter>
