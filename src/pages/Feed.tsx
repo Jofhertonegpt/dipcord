@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Heart, MessageSquare, LogOut, ImagePlus, X } from "lucide-react";
+import { Loader2, Heart, MessageSquare, LogOut, ImagePlus, X, Send } from "lucide-react";
 import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Post {
   id: string;
@@ -17,8 +18,19 @@ interface Post {
   media_urls: string[] | null;
   profiles: {
     username: string;
-    full_name: string;
-    avatar_url: string;
+    full_name: string | null;
+    avatar_url: string | null;
+  };
+  user_liked?: boolean;
+}
+
+interface Comment {
+  id: string;
+  content: string;
+  created_at: string;
+  profiles: {
+    username: string;
+    avatar_url: string | null;
   };
 }
 
@@ -27,6 +39,8 @@ const Feed = () => {
   const queryClient = useQueryClient();
   const [newPost, setNewPost] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [newComment, setNewComment] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -42,6 +56,9 @@ const Feed = () => {
   const { data: posts, isLoading } = useQuery({
     queryKey: ['posts'],
     queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
       const { data, error } = await supabase
         .from('posts')
         .select(`
@@ -55,8 +72,47 @@ const Feed = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Post[];
+
+      // Get likes status for each post
+      const postsWithLikes = await Promise.all(data.map(async (post) => {
+        const { data: likeData } = await supabase
+          .from('likes')
+          .select('id')
+          .eq('post_id', post.id)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        return {
+          ...post,
+          user_liked: !!likeData
+        };
+      }));
+
+      return postsWithLikes as Post[];
     },
+  });
+
+  const { data: comments } = useQuery({
+    queryKey: ['comments', selectedPostId],
+    queryFn: async () => {
+      if (!selectedPostId) return [];
+      
+      const { data, error } = await supabase
+        .from('comments')
+        .select(`
+          *,
+          profiles (
+            username,
+            avatar_url
+          )
+        `)
+        .eq('post_id', selectedPostId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return data as Comment[];
+    },
+    enabled: !!selectedPostId
   });
 
   const uploadFiles = async (files: File[]): Promise<string[]> => {
@@ -90,29 +146,6 @@ const Feed = () => {
         mediaUrls = await uploadFiles(selectedFiles);
       }
 
-      // First ensure profile exists
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (!profile) {
-        // Create profile if it doesn't exist
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .insert([{
-            id: user.id,
-            username: user.email?.split('@')[0] || 'user',
-            full_name: user.email
-          }]);
-        
-        if (insertError) throw insertError;
-      } else if (profileError) {
-        throw profileError;
-      }
-
-      // Now create the post
       const { error } = await supabase
         .from('posts')
         .insert([
@@ -133,6 +166,68 @@ const Feed = () => {
     },
     onError: (error: Error) => {
       toast.error(`Error creating post: ${error.message}`);
+    }
+  });
+
+  const toggleLike = useMutation({
+    mutationFn: async (postId: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const post = posts?.find(p => p.id === postId);
+      if (!post) throw new Error("Post not found");
+
+      if (post.user_liked) {
+        const { error } = await supabase
+          .from('likes')
+          .delete()
+          .eq('post_id', postId)
+          .eq('user_id', user.id);
+        
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('likes')
+          .insert([
+            { post_id: postId, user_id: user.id }
+          ]);
+        
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Error toggling like: ${error.message}`);
+    }
+  });
+
+  const addComment = useMutation({
+    mutationFn: async ({ postId, content }: { postId: string; content: string }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from('comments')
+        .insert([
+          { 
+            post_id: postId,
+            user_id: user.id,
+            content
+          }
+        ]);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setNewComment("");
+      queryClient.invalidateQueries({ queryKey: ['comments', selectedPostId] });
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      toast.success("Comment added successfully!");
+    },
+    onError: (error: Error) => {
+      toast.error(`Error adding comment: ${error.message}`);
     }
   });
 
@@ -172,7 +267,7 @@ const Feed = () => {
 
         <Card className="mb-8 glass-morphism">
           <CardContent className="pt-6">
-            <textarea
+            <Textarea
               className="w-full min-h-[100px] p-4 rounded-lg bg-white/5 border-white/10 resize-none focus:outline-none focus:ring-2 focus:ring-primary text-white placeholder-white/50"
               placeholder="What's on your mind?"
               value={newPost}
@@ -236,13 +331,15 @@ const Feed = () => {
               <Card key={post.id} className="glass-morphism hover-scale">
                 <CardHeader className="flex flex-row items-center space-x-4">
                   <Avatar>
-                    <AvatarImage src={post.profiles.avatar_url} />
+                    <AvatarImage src={post.profiles.avatar_url || ''} />
                     <AvatarFallback>
                       {post.profiles.username.substring(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-semibold text-white">{post.profiles.full_name}</p>
+                    <p className="font-semibold text-white">
+                      {post.profiles.full_name || post.profiles.username}
+                    </p>
                     <p className="text-sm text-white/60">@{post.profiles.username}</p>
                   </div>
                 </CardHeader>
@@ -260,13 +357,64 @@ const Feed = () => {
                       ))}
                     </div>
                   )}
+                  {selectedPostId === post.id && comments && (
+                    <div className="mt-4 space-y-4">
+                      {comments.map((comment) => (
+                        <div key={comment.id} className="flex items-start space-x-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={comment.profiles.avatar_url || ''} />
+                            <AvatarFallback>
+                              {comment.profiles.username.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <p className="text-sm text-white/60">@{comment.profiles.username}</p>
+                            <p className="text-white">{comment.content}</p>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="flex items-center gap-2 mt-2">
+                        <Textarea
+                          placeholder="Add a comment..."
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                          className="flex-1 min-h-[40px] p-2 text-sm bg-white/5"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            if (newComment.trim()) {
+                              addComment.mutate({ postId: post.id, content: newComment });
+                            }
+                          }}
+                          disabled={!newComment.trim() || addComment.isPending}
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
                 <CardFooter className="flex gap-4">
-                  <Button variant="ghost" size="sm" className="text-white/60 hover:text-white hover:bg-white/10">
-                    <Heart className="h-4 w-4 mr-2" />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`text-white/60 hover:text-white hover:bg-white/10 ${
+                      post.user_liked ? 'text-red-500 hover:text-red-600' : ''
+                    }`}
+                    onClick={() => toggleLike.mutate(post.id)}
+                  >
+                    <Heart
+                      className={`h-4 w-4 mr-2 ${post.user_liked ? 'fill-current' : ''}`}
+                    />
                     {post.likes_count}
                   </Button>
-                  <Button variant="ghost" size="sm" className="text-white/60 hover:text-white hover:bg-white/10">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-white/60 hover:text-white hover:bg-white/10"
+                    onClick={() => setSelectedPostId(selectedPostId === post.id ? null : post.id)}
+                  >
                     <MessageSquare className="h-4 w-4 mr-2" />
                     {post.comments_count}
                   </Button>

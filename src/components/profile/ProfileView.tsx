@@ -18,8 +18,8 @@ interface Profile {
   full_name: string | null;
   avatar_url: string | null;
   bio: string | null;
-  _count: { count: number }[];
-  following: { count: number }[];
+  _count: number;
+  following: number;
 }
 
 export const ProfileView = ({ userId, onClose }: ProfileViewProps) => {
@@ -34,7 +34,11 @@ export const ProfileView = ({ userId, onClose }: ProfileViewProps) => {
       const { data: profile, error } = await supabase
         .from('profiles')
         .select(`
-          *,
+          id,
+          username,
+          full_name,
+          avatar_url,
+          bio,
           _count: follows!follows_following_id_fkey(count),
           following: follows!follows_follower_id_fkey(count)
         `)
@@ -42,7 +46,12 @@ export const ProfileView = ({ userId, onClose }: ProfileViewProps) => {
         .maybeSingle();
 
       if (error) throw error;
-      return profile as Profile;
+      
+      return {
+        ...profile,
+        _count: profile?._count?.[0]?.count || 0,
+        following: profile?.following?.[0]?.count || 0
+      } as Profile;
     },
     enabled: !!userId,
   });
@@ -126,7 +135,7 @@ export const ProfileView = ({ userId, onClose }: ProfileViewProps) => {
       <CardHeader className="text-center">
         <div className="flex justify-center mb-4">
           <Avatar className="h-24 w-24">
-            <AvatarImage src={profile.avatar_url} />
+            <AvatarImage src={profile.avatar_url || ''} />
             <AvatarFallback>
               {profile.username?.substring(0, 2).toUpperCase()}
             </AvatarFallback>
@@ -135,9 +144,7 @@ export const ProfileView = ({ userId, onClose }: ProfileViewProps) => {
         <CardTitle className="text-2xl font-bold text-white">
           {profile.full_name || profile.username}
         </CardTitle>
-        {profile.full_name && (
-          <p className="text-sm text-white/60">@{profile.username}</p>
-        )}
+        <p className="text-sm text-white/60">@{profile.username}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         {profile.bio && (
@@ -145,11 +152,11 @@ export const ProfileView = ({ userId, onClose }: ProfileViewProps) => {
         )}
         <div className="flex justify-center gap-8 text-center">
           <div>
-            <p className="text-lg font-semibold text-white">{profile._count[0]?.count || 0}</p>
+            <p className="text-lg font-semibold text-white">{profile._count}</p>
             <p className="text-sm text-white/60">Followers</p>
           </div>
           <div>
-            <p className="text-lg font-semibold text-white">{profile.following[0]?.count || 0}</p>
+            <p className="text-lg font-semibold text-white">{profile.following}</p>
             <p className="text-sm text-white/60">Following</p>
           </div>
         </div>
