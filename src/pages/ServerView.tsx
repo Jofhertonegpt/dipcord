@@ -28,7 +28,7 @@ const ServerView = () => {
     enabled: !!serverId
   });
 
-  // Fetch channels
+  // Fetch channels with type casting
   const { data: channels, isLoading: loadingChannels } = useQuery({
     queryKey: ['channels', serverId],
     queryFn: async () => {
@@ -40,12 +40,16 @@ const ServerView = () => {
         .order('name', { ascending: true });
       
       if (error) throw error;
-      return data;
+      
+      // Ensure the type is either 'text' or 'voice'
+      return data?.map(channel => ({
+        ...channel,
+        type: channel.type === 'voice' ? 'voice' : 'text'
+      })) || [];
     },
     enabled: !!serverId
   });
 
-  // Fetch messages for selected channel
   const { data: messages, isLoading: loadingMessages } = useQuery({
     queryKey: ['messages', selectedChannel],
     queryFn: async () => {
