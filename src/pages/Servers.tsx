@@ -37,17 +37,21 @@ const Servers = () => {
         .from('profiles')
         .select('id')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (profileError || !profile) {
+      if (!profile) {
         // Create profile if it doesn't exist
-        await supabase
+        const { error: insertError } = await supabase
           .from('profiles')
           .insert([{
             id: user.id,
             username: user.email?.split('@')[0] || 'user',
             full_name: user.email
           }]);
+        
+        if (insertError) throw insertError;
+      } else if (profileError) {
+        throw profileError;
       }
 
       const { error } = await supabase
@@ -72,6 +76,35 @@ const Servers = () => {
       toast.error(`Error creating server: ${error.message}`);
     }
   });
+
+  const joinServer = useMutation({
+    mutationFn: async (serverId: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from('server_members')
+        .insert([
+          { 
+            server_id: serverId,
+            user_id: user.id 
+          }
+        ]);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['servers'] });
+      toast.success("Joined server successfully!");
+    },
+    onError: (error: Error) => {
+      toast.error(`Error joining server: ${error.message}`);
+    }
+  });
+
+  const handleJoinServer = async (serverId: string) => {
+    await joinServer.mutate(serverId);
+  };
 
   const handleCreateServer = async () => {
     if (!newServerName.trim() || !newServerDescription.trim()) return;

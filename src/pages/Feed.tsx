@@ -66,9 +66,9 @@ const Feed = () => {
         .from('profiles')
         .select('id')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (profileError || !profile) {
+      if (!profile) {
         // Create profile if it doesn't exist
         const { error: insertError } = await supabase
           .from('profiles')
@@ -79,6 +79,8 @@ const Feed = () => {
           }]);
         
         if (insertError) throw insertError;
+      } else if (profileError) {
+        throw profileError;
       }
 
       // Now create the post
