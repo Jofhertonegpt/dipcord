@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Snowflake, createSnowflake } from './Snowflake';
 
 interface BackgroundSettings {
@@ -30,20 +30,25 @@ export const useSnowfall = () => {
   }, []);
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
     const updateWind = () => {
       setTargetWindStrength(Math.random() * 4 - 2);
-      setTimeout(updateWind, 5000 + Math.random() * 5000);
+      timeoutId = setTimeout(updateWind, 5000 + Math.random() * 5000);
     };
     updateWind();
+    
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, []);
 
-  const initializeSnowflakes = (canvas: HTMLCanvasElement) => {
+  const initializeSnowflakes = useCallback((canvas: HTMLCanvasElement) => {
     const newSnowflakes = Array.from(
       { length: settings.density }, 
       () => createSnowflake(canvas, settings.animationSpeed)
     );
     setSnowflakes(newSnowflakes);
-  };
+  }, [settings.density, settings.animationSpeed]);
 
   return { 
     settings, 

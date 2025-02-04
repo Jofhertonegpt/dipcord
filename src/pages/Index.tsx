@@ -1,10 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Auth } from "@/components/Auth";
 
-const Index = () => {
+const IndexPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -32,4 +32,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default memo(IndexPage);
