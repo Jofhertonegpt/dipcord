@@ -6,37 +6,50 @@
 
 @layer base {
   :root {
-    --background: 220 20% 10%;
-    --foreground: 0 0% 98%;
-    --card: 220 20% 12%;
-    --card-foreground: 0 0% 98%;
-    --popover: 220 20% 12%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 72% 51%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 142 47% 35%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 220 20% 20%;
-    --muted-foreground: 220 20% 70%;
-    --accent: 220 20% 20%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 220 20% 20%;
-    --input: 220 20% 20%;
-    --ring: 220 20% 70%;
+    --background: 210 30% 92%;
+    --foreground: 210 50% 17%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 210 50% 17%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 50% 17%;
+    
+    --primary: 210 45% 30%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 210 25% 65%;
+    --secondary-foreground: 210 50% 17%;
+    
+    --muted: 210 20% 85%;
+    --muted-foreground: 210 50% 17%;
+    
+    --accent: 210 30% 40%;
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 0 45% 35%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 210 20% 85%;
+    --input: 210 20% 85%;
+    --ring: 210 30% 40%;
+    
     --radius: 0.75rem;
   }
 }
 
 @layer base {
   * {
-    @apply border-border selection:bg-white/10 selection:text-white;
+    @apply border-border selection:bg-primary/10 selection:text-primary;
   }
   
   body {
     @apply bg-background text-foreground antialiased overflow-x-hidden min-h-screen font-sans;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
+    background-image: url('/lovable-uploads/f861afe2-7ac2-4a83-b821-8849543e5e5b.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
   }
 
   h1 {
@@ -65,7 +78,7 @@
     @apply transition-transform duration-200 hover:scale-105;
   }
 
-  .christmas-gradient {
-    @apply bg-gradient-to-br from-[#ea384c] via-[#34a853] to-[#fbbc05];
+  .winter-gradient {
+    @apply bg-gradient-to-b from-[#E6EEF5] via-[#8CA5BE] to-[#2B4C6F];
   }
 }
