@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Send, Image, Loader2 } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { ImagePlus, Loader2, Send, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface MessageInputProps {
@@ -11,39 +11,40 @@ interface MessageInputProps {
 }
 
 export const MessageInput = ({ channelId }: MessageInputProps) => {
-  const [messageText, setMessageText] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
+  const [content, setContent] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
+  const uploadFiles = async (files: File[]): Promise<string[]> => {
+    const uploadPromises = files.map(async (file) => {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${crypto.randomUUID()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('posts')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('posts')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    });
+
+    return Promise.all(uploadPromises);
+  };
+
   const sendMessage = useMutation({
-    mutationFn: async (files?: FileList) => {
-      if (!channelId || (!messageText && !files)) return;
+    mutationFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
 
       let mediaUrls: string[] = [];
-
-      if (files?.length) {
-        setIsUploading(true);
-        try {
-          for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Math.random().toString(36).substring(7)}.${fileExt}`;
-            
-            const { error: uploadError, data } = await supabase.storage
-              .from('messages')
-              .upload(fileName, file);
-
-            if (uploadError) throw uploadError;
-            
-            const { data: { publicUrl } } = supabase.storage
-              .from('messages')
-              .getPublicUrl(fileName);
-
-            mediaUrls.push(publicUrl);
-          }
-        } finally {
-          setIsUploading(false);
-        }
+      if (selectedFiles.length > 0) {
+        mediaUrls = await uploadFiles(selectedFiles);
       }
 
       const { error } = await supabase
@@ -51,71 +52,94 @@ export const MessageInput = ({ channelId }: MessageInputProps) => {
         .insert([
           {
             channel_id: channelId,
-            content: messageText,
-            media_urls: mediaUrls.length > 0 ? mediaUrls : null,
-          },
+            content,
+            sender_id: user.id,
+            media_urls: mediaUrls.length > 0 ? mediaUrls : null
+          }
         ]);
-      
+
       if (error) throw error;
     },
     onSuccess: () => {
-      setMessageText("");
+      setContent("");
+      setSelectedFiles([]);
       queryClient.invalidateQueries({ queryKey: ['messages', channelId] });
-      toast.success("Message sent successfully");
     },
-    onError: (error) => {
-      toast.error("Failed to send message");
-      console.error(error);
-    },
+    onError: (error: Error) => {
+      toast.error(`Error sending message: ${error.message}`);
+    }
   });
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (files) {
-      sendMessage.mutate(files);
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setSelectedFiles(prev => [...prev, ...files]);
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async () => {
+    if (!content.trim() && selectedFiles.length === 0) return;
+    await sendMessage.mutate();
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
     }
   };
 
   return (
-    <div className="p-4 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex items-center space-x-2">
-        <Input
-          value={messageText}
-          onChange={(e) => setMessageText(e.target.value)}
-          placeholder="Type a message..."
-          className="flex-1"
-          disabled={sendMessage.isPending || isUploading}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              sendMessage.mutate(undefined);
-            }
-          }}
-        />
+    <div className="p-4 bg-background/80 backdrop-blur-sm border-t border-white/10">
+      {selectedFiles.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-2">
+          {selectedFiles.map((file, index) => (
+            <div key={index} className="relative inline-block">
+              <div className="px-3 py-1 rounded bg-white/10 text-white flex items-center gap-2">
+                <span className="text-sm truncate max-w-[150px]">{file.name}</span>
+                <button
+                  onClick={() => removeFile(index)}
+                  className="text-white/60 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2">
         <input
           type="file"
-          id="file-upload"
+          ref={fileInputRef}
+          onChange={handleFileSelect}
           className="hidden"
-          multiple
           accept="image/*"
-          onChange={handleFileUpload}
-          disabled={sendMessage.isPending || isUploading}
+          multiple
         />
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => document.getElementById('file-upload')?.click()}
-          disabled={sendMessage.isPending || isUploading}
+          onClick={() => fileInputRef.current?.click()}
           className="shrink-0"
         >
-          <Image className="h-4 w-4" />
+          <ImagePlus className="h-5 w-5" />
         </Button>
-        <Button 
-          onClick={() => sendMessage.mutate(undefined)}
-          disabled={(!messageText.trim() && !isUploading) || sendMessage.isPending}
+        <Textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          onKeyDown={handleKeyPress}
+          placeholder="Type a message..."
+          className="min-h-[2.5rem] max-h-32 bg-white/5 border-white/10 resize-none"
+        />
+        <Button
+          onClick={handleSubmit}
+          disabled={(!content.trim() && selectedFiles.length === 0) || sendMessage.isPending}
           className="shrink-0"
         >
-          {sendMessage.isPending || isUploading ? (
+          {sendMessage.isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <Send className="h-4 w-4" />
