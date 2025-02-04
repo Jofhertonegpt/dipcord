@@ -3,17 +3,27 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, MessageCircle, ImagePlus } from "lucide-react";
+import { Heart, ImagePlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Tables } from "@/integrations/supabase/types";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { ProfileView } from "@/components/profile/ProfileView";
+import { CommentSection } from "@/components/post/CommentSection";
 
 type Post = Tables<"posts"> & {
   profiles: Tables<"profiles">;
   likes: Tables<"likes">[];
-  comments: Tables<"comments">[];
+  comments: {
+    id: string;
+    content: string;
+    created_at: string;
+    user: {
+      id: string;
+      username: string;
+      avatar_url: string | null;
+    };
+  }[];
 };
 
 export default function Feed() {
@@ -40,7 +50,10 @@ export default function Feed() {
             user_id
           ),
           comments (
-            id
+            id,
+            content,
+            created_at,
+            user:profiles(id, username, avatar_url)
           )
         `)
         .order("created_at", { ascending: false });
@@ -186,37 +199,6 @@ export default function Feed() {
     toggleLikeMutation.mutate({ postId });
   };
 
-  const createCommentMutation = useMutation({
-    mutationFn: async ({ postId, content }: { postId: string; content: string }) => {
-      if (!currentUser) throw new Error("Must be logged in to comment");
-
-      const { error: insertError } = await supabase
-        .from("comments")
-        .insert({
-          post_id: postId,
-          user_id: currentUser.id,
-          content,
-        });
-
-      if (insertError) throw insertError;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["posts"] });
-      toast({
-        title: "Success",
-        description: "Comment added successfully!",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to add comment. Please try again.",
-        variant: "destructive",
-      });
-      console.error("Comment error:", error);
-    },
-  });
-
   if (isLoading) {
     return (
       <div className="max-w-2xl mx-auto p-4 space-y-6">
@@ -320,21 +302,14 @@ export default function Feed() {
               <Heart className="h-4 w-4" />
               {post.likes.length}
             </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="gap-2 text-white/70 hover:text-white hover:bg-white/10"
-              onClick={() => {
-                const content = prompt("Enter your comment:");
-                if (content?.trim()) {
-                  createCommentMutation.mutate({ postId: post.id, content });
-                }
-              }}
-            >
-              <MessageCircle className="h-4 w-4" />
-              {post.comments.length}
-            </Button>
           </div>
+
+          {/* Comments Section */}
+          <CommentSection
+            postId={post.id}
+            comments={post.comments}
+            currentUser={currentUser}
+          />
         </div>
       ))}
 
