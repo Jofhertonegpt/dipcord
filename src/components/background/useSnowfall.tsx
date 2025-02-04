@@ -7,7 +7,7 @@ interface BackgroundSettings {
   density: number;
 }
 
-export const useSnowfall = (canvas: HTMLCanvasElement | null) => {
+export const useSnowfall = () => {
   const [settings, setSettings] = useState<BackgroundSettings>({
     color: '#ea384c',
     animationSpeed: 1,
@@ -30,20 +30,6 @@ export const useSnowfall = (canvas: HTMLCanvasElement | null) => {
   }, []);
 
   useEffect(() => {
-    if (!canvas) return;
-    
-    const initializeSnowflakes = () => {
-      const newSnowflakes = Array.from(
-        { length: settings.density }, 
-        () => createSnowflake(canvas, settings.animationSpeed)
-      );
-      setSnowflakes(newSnowflakes);
-    };
-
-    initializeSnowflakes();
-  }, [canvas, settings.density, settings.animationSpeed]);
-
-  useEffect(() => {
     const updateWind = () => {
       setTargetWindStrength(Math.random() * 4 - 2);
       setTimeout(updateWind, 5000 + Math.random() * 5000);
@@ -51,5 +37,20 @@ export const useSnowfall = (canvas: HTMLCanvasElement | null) => {
     updateWind();
   }, []);
 
-  return { settings, snowflakes, windStrength, targetWindStrength, setWindStrength };
+  const initializeSnowflakes = (canvas: HTMLCanvasElement) => {
+    const newSnowflakes = Array.from(
+      { length: settings.density }, 
+      () => createSnowflake(canvas, settings.animationSpeed)
+    );
+    setSnowflakes(newSnowflakes);
+  };
+
+  return { 
+    settings, 
+    snowflakes, 
+    windStrength, 
+    targetWindStrength, 
+    setWindStrength,
+    initializeSnowflakes 
+  };
 };

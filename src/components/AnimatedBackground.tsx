@@ -7,6 +7,14 @@ import { useIsMobile } from '@/hooks/use-mobile';
 const AnimatedBackground = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isMobile = useIsMobile();
+  const { 
+    settings, 
+    snowflakes, 
+    windStrength, 
+    targetWindStrength, 
+    setWindStrength,
+    initializeSnowflakes 
+  } = useSnowfall();
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -21,7 +29,7 @@ const AnimatedBackground = () => {
     window.addEventListener('resize', resizeCanvas);
 
     const { backgroundImage, drawBackground } = createBackgroundImage(isMobile);
-    const { settings, snowflakes, windStrength, targetWindStrength, setWindStrength } = useSnowfall(canvas);
+    initializeSnowflakes(canvas);
 
     const animate = () => {
       if (!canvas) return;
@@ -60,7 +68,7 @@ const AnimatedBackground = () => {
     return () => {
       window.removeEventListener('resize', resizeCanvas);
     };
-  }, [isMobile]);
+  }, [isMobile, settings, snowflakes, targetWindStrength, windStrength, setWindStrength, initializeSnowflakes]);
 
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-[-1]" />;
 };
