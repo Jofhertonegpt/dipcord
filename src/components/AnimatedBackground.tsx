@@ -27,6 +27,8 @@ const AnimatedBackground = () => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d')!;
     
+    // Clear canvas and draw background
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawBackground(ctx, canvas);
 
     // Update wind
@@ -61,9 +63,9 @@ const AnimatedBackground = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
     };
+    
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
-
     initializeSnowflakes(canvas);
 
     // Start animation when image is loaded

@@ -8,10 +8,10 @@ interface BackgroundSettings {
 }
 
 export const useSnowfall = () => {
-  const [settings, setSettings] = useState<BackgroundSettings>({
-    color: '#ea384c',
-    animationSpeed: 1,
-    density: 250,
+  const [settings] = useState<BackgroundSettings>({
+    color: '#ffffff',
+    animationSpeed: 0.5,
+    density: 150,
   });
 
   const [snowflakes, setSnowflakes] = useState<Snowflake[]>([]);
@@ -19,27 +19,11 @@ export const useSnowfall = () => {
   const [targetWindStrength, setTargetWindStrength] = useState(0);
 
   useEffect(() => {
-    const handleBackgroundUpdate = (event: CustomEvent<BackgroundSettings>) => {
-      setSettings(event.detail);
-    };
-
-    window.addEventListener('updateBackground', handleBackgroundUpdate as EventListener);
-    return () => {
-      window.removeEventListener('updateBackground', handleBackgroundUpdate as EventListener);
-    };
-  }, []);
-
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    const updateWind = () => {
+    const timeoutId = setInterval(() => {
       setTargetWindStrength(Math.random() * 4 - 2);
-      timeoutId = setTimeout(updateWind, 5000 + Math.random() * 5000);
-    };
-    updateWind();
+    }, 5000);
     
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
+    return () => clearInterval(timeoutId);
   }, []);
 
   const initializeSnowflakes = useCallback((canvas: HTMLCanvasElement) => {
