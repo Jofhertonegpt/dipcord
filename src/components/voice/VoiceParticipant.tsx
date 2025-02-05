@@ -43,7 +43,8 @@ export const VoiceParticipant = ({
         
         // Enable automatic playing
         audio.autoplay = true;
-        audio.playsInline = true;
+        // Use the correct attribute name with setAttribute
+        audio.setAttribute('playsinline', 'true');
         
         // Play audio
         const playPromise = audio.play();
