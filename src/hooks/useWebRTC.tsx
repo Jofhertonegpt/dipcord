@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Json } from '@/integrations/supabase/types';
 
 interface WebRTCConfig {
   channelId: string;
@@ -33,19 +32,42 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
     toast.error(`Voice chat error: ${error.message}`);
   };
 
+  const fetchIceServers = async () => {
+    try {
+      const { data: iceServers, error } = await supabase
+        .from('ice_servers')
+        .select('*')
+        .eq('is_active', true);
+
+      if (error) throw error;
+
+      if (!iceServers?.length) {
+        console.warn('No ICE servers found in database, falling back to default STUN server');
+        return [{ urls: 'stun:stun.l.google.com:19302' }];
+      }
+
+      console.log('Fetched ICE servers:', iceServers);
+      return iceServers.map(server => ({
+        urls: server.urls,
+        username: server.username,
+        credential: server.credential
+      }));
+    } catch (error) {
+      console.error('Error fetching ICE servers:', error);
+      // Fallback to public STUN server if database query fails
+      return [{ urls: 'stun:stun.l.google.com:19302' }];
+    }
+  };
+
   const createPeerConnection = async (participantId: string) => {
     try {
       console.log('Creating peer connection for participant:', participantId);
       
+      const iceServers = await fetchIceServers();
+      console.log('Using ICE servers:', iceServers);
+      
       const pc = new RTCPeerConnection({
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          {
-            urls: 'turn:global.turn.twilio.com:3478?transport=udp',
-            username: 'your_username',
-            credential: 'your_credential'
-          }
-        ],
+        iceServers,
         iceTransportPolicy: 'all',
         bundlePolicy: 'max-bundle',
         rtcpMuxPolicy: 'require',
