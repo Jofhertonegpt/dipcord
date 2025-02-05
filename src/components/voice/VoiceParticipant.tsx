@@ -22,6 +22,7 @@ export const VoiceParticipant = ({
   stream
 }: VoiceParticipantProps) => {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -29,65 +30,103 @@ export const VoiceParticipant = ({
     if (!audioRef.current || !stream) return;
 
     const audio = audioRef.current;
+    let mounted = true;
 
-    const handleCanPlay = () => {
-      console.log('Audio can play for:', username);
-      const playPromise = audio.play();
-      
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            console.log('Audio playing successfully for:', username);
-            setIsPlaying(true);
-            setAudioError(null);
-          })
-          .catch(error => {
-            console.error('Audio playback failed:', error);
-            setAudioError('Failed to play audio');
-            setIsPlaying(false);
-            toast.error(`Failed to play audio for ${username}`);
-          });
+    const initializeAudioContext = async () => {
+      try {
+        // Create AudioContext only if needed
+        if (!audioContextRef.current) {
+          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        }
+
+        // Resume AudioContext if suspended
+        if (audioContextRef.current.state === 'suspended') {
+          await audioContextRef.current.resume();
+        }
+
+        return true;
+      } catch (error) {
+        console.error('Failed to initialize AudioContext:', error);
+        return false;
       }
     };
 
-    const handleError = (event: ErrorEvent) => {
-      console.error('Audio error:', event);
-      setAudioError(event.message);
-      setIsPlaying(false);
-      toast.error(`Audio error for ${username}: ${event.message}`);
+    const setupAudioPlayback = async () => {
+      try {
+        // Check browser audio support
+        if (!audio.canPlayType('audio/webm') && !audio.canPlayType('audio/ogg')) {
+          throw new Error('Browser does not support required audio formats');
+        }
+
+        // Initialize AudioContext
+        const contextInitialized = await initializeAudioContext();
+        if (!contextInitialized) {
+          throw new Error('Failed to initialize audio system');
+        }
+
+        // Connect stream to audio element
+        audio.srcObject = stream;
+        
+        // Attempt playback
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          await playPromise;
+          if (mounted) {
+            console.log('Audio playing successfully for:', username);
+            setIsPlaying(true);
+            setAudioError(null);
+          }
+        }
+      } catch (error) {
+        if (mounted) {
+          console.error('Audio setup failed:', error);
+          setAudioError(error.message);
+          setIsPlaying(false);
+          toast.error(`Audio error for ${username}: ${error.message}`);
+        }
+      }
     };
 
-    // Check if the browser supports audio playback
-    if (!audio.canPlayType('audio/webm') && !audio.canPlayType('audio/ogg')) {
-      const error = 'Browser does not support required audio formats';
-      console.error(error);
-      setAudioError(error);
-      toast.error(error);
-      return;
-    }
+    const handleCanPlay = () => {
+      console.log('Audio can play for:', username);
+      setupAudioPlayback();
+    };
 
-    audio.srcObject = stream;
+    const handleError = (event: Event) => {
+      if (mounted) {
+        const error = event instanceof ErrorEvent ? event.message : 'Unknown audio error';
+        console.error('Audio error:', error);
+        setAudioError(error);
+        setIsPlaying(false);
+        toast.error(`Audio error for ${username}: ${error}`);
+      }
+    };
+
+    // Set up event listeners
     audio.addEventListener('canplay', handleCanPlay);
-    audio.addEventListener('error', handleError as EventListener);
+    audio.addEventListener('error', handleError);
 
-    // Attempt to resume AudioContext if it's suspended
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    if (audioContext.state === 'suspended') {
-      audioContext.resume().catch(console.error);
-    }
+    // Initial setup
+    setupAudioPlayback();
 
+    // Cleanup function
     return () => {
+      mounted = false;
       audio.removeEventListener('canplay', handleCanPlay);
-      audio.removeEventListener('error', handleError as EventListener);
+      audio.removeEventListener('error', handleError);
       audio.srcObject = null;
       setIsPlaying(false);
-      audioContext.close().catch(console.error);
+      
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(console.error);
+        audioContextRef.current = null;
+      }
     };
   }, [stream, username]);
 
   return (
     <div className={`flex items-center gap-3 p-2 rounded-lg ${
-      isSpeaking ? 'bg-green-500/10' : 'hover:bg-white/5'
+      isSpeaking && !audioError && isPlaying ? 'bg-green-500/10' : 'hover:bg-white/5'
     }`}>
       <Avatar className="h-8 w-8 relative">
         <AvatarImage src={avatarUrl || ''} />
