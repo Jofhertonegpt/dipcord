@@ -427,6 +427,48 @@ export type Database = {
           },
         ]
       }
+      voice_channel_participants: {
+        Row: {
+          channel_id: string | null
+          id: string
+          is_deafened: boolean | null
+          is_muted: boolean | null
+          joined_at: string
+          user_id: string | null
+        }
+        Insert: {
+          channel_id?: string | null
+          id?: string
+          is_deafened?: boolean | null
+          is_muted?: boolean | null
+          joined_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          channel_id?: string | null
+          id?: string
+          is_deafened?: boolean | null
+          is_muted?: boolean | null
+          joined_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_channel_participants_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_channel_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

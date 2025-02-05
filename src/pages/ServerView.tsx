@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ChannelList } from "@/components/server/ChannelList";
 import { MessageList } from "@/components/server/MessageList";
 import { MessageInput } from "@/components/server/MessageInput";
+import { VoiceChannel } from "@/components/voice/VoiceChannel";
 import { Loader2, PanelLeftIcon, PanelRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -111,13 +112,11 @@ const ServerView = () => {
     };
   }, [serverId, queryClient]);
 
-  if (loadingServer || loadingChannels) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
+  const handleChannelSelect = (channelId: string) => {
+    setSelectedChannel(channelId);
+  };
+
+  const selectedChannelType = channels?.find(c => c.id === selectedChannel)?.type;
 
   return (
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-background">
@@ -131,7 +130,7 @@ const ServerView = () => {
           serverId={serverId!}
           channels={channels}
           selectedChannel={selectedChannel}
-          onSelectChannel={setSelectedChannel}
+          onSelectChannel={handleChannelSelect}
         />
       </div>
 
@@ -157,12 +156,18 @@ const ServerView = () => {
               </div>
             ) : (
               <>
-                <div className="flex-1 overflow-hidden">
-                  <MessageList messages={messages} channelId={selectedChannel} />
-                </div>
-                <div className="mt-auto">
-                  <MessageInput channelId={selectedChannel} />
-                </div>
+                {selectedChannelType === 'voice' ? (
+                  <VoiceChannel channelId={selectedChannel} />
+                ) : (
+                  <>
+                    <div className="flex-1 overflow-hidden">
+                      <MessageList messages={messages} channelId={selectedChannel} />
+                    </div>
+                    <div className="mt-auto">
+                      <MessageInput channelId={selectedChannel} />
+                    </div>
+                  </>
+                )}
               </>
             )}
           </>
