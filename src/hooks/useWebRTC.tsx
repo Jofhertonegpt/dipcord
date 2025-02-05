@@ -8,7 +8,6 @@ interface WebRTCConfig {
   onTrack?: (event: RTCTrackEvent, participantId: string) => void;
 }
 
-// Helper type for serializable WebRTC payloads that matches Json type
 type SerializablePayload = {
   type?: string;
   sdp?: string;
@@ -44,17 +43,12 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
             username: 'your_username',
             credential: 'your_credential'
           }
-        ]
+        ],
+        iceTransportPolicy: 'all',
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require',
+        iceCandidatePoolSize: 1
       });
-
-      if (localStream.current) {
-        console.log('Adding local tracks to peer connection');
-        localStream.current.getTracks().forEach(track => {
-          if (localStream.current) {
-            pc.addTrack(track, localStream.current);
-          }
-        });
-      }
 
       pc.onicecandidate = async (event) => {
         if (event.candidate) {
@@ -91,6 +85,7 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         if (pc.connectionState === 'failed') {
           console.log('Connection failed, attempting to reconnect...');
           pc.restartIce();
+          toast.warning('Voice connection unstable, attempting to reconnect...');
         }
       };
 
@@ -101,10 +96,23 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         }
       };
 
+      if (localStream.current) {
+        console.log('Adding local tracks to peer connection');
+        localStream.current.getTracks().forEach(track => {
+          if (localStream.current) {
+            console.log('Adding track:', track.kind);
+            pc.addTrack(track, localStream.current);
+          }
+        });
+      }
+
       pc.onnegotiationneeded = async () => {
         try {
           console.log('Negotiation needed, creating offer...');
-          const offer = await pc.createOffer();
+          const offer = await pc.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: false
+          });
           await pc.setLocalDescription(offer);
           
           const { data: { user } } = await supabase.auth.getUser();
@@ -176,7 +184,7 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
             sender_id: user.id,
             receiver_id: sender_id,
             type: 'answer',
-            payload: answerPayload
+            payload: answerPayload as Json
           });
           break;
 
@@ -212,7 +220,9 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
+          autoGainControl: true,
+          sampleRate: 48000,
+          channelCount: 2
         },
         video: false
       });

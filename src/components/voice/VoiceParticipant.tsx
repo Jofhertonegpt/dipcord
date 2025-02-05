@@ -24,6 +24,7 @@ export const VoiceParticipant = ({
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [volume, setVolume] = useState(1);
 
   useEffect(() => {
     if (!audioRef.current || !stream) return;
@@ -33,16 +34,17 @@ export const VoiceParticipant = ({
 
     const setupAudioPlayback = async () => {
       try {
-        // Reset error state
         setAudioError(null);
-
-        // Ensure audio is unmuted and volume is set
+        
+        // Configure audio element
         audio.muted = false;
-        audio.volume = 1.0;
-
-        // Connect stream
+        audio.volume = volume;
         audio.srcObject = stream;
-
+        
+        // Enable automatic playing
+        audio.autoplay = true;
+        audio.playsInline = true;
+        
         // Play audio
         const playPromise = audio.play();
         if (playPromise !== undefined) {
@@ -57,28 +59,46 @@ export const VoiceParticipant = ({
           console.error('Audio playback failed:', error);
           setAudioError(error.message);
           setIsPlaying(false);
-          
-          // Show error toast
           toast.error(`Audio playback error for ${username}: ${error.message}`);
           
-          // Attempt recovery
+          // Attempt recovery after a short delay
           setTimeout(() => {
             if (mounted && audio) {
               console.log('Attempting audio recovery for:', username);
               setupAudioPlayback();
             }
-          }, 2000);
+          }, 1000);
         }
       }
     };
 
-    // Set up event listeners
-    const handleCanPlay = () => {
-      console.log('Audio can play for:', username);
-      setupAudioPlayback();
+    // Set up audio context for volume analysis
+    const audioContext = new AudioContext();
+    const source = audioContext.createMediaStreamSource(stream);
+    const analyser = audioContext.createAnalyser();
+    const processor = audioContext.createScriptProcessor(2048, 1, 1);
+    
+    source.connect(analyser);
+    analyser.connect(processor);
+    processor.connect(audioContext.destination);
+    
+    processor.onaudioprocess = () => {
+      const array = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(array);
+      const arraySum = array.reduce((a, value) => a + value, 0);
+      const average = arraySum / array.length;
+      
+      // Consider the participant speaking if the average volume is above a threshold
+      if (average > 30 && !isMuted) {
+        setIsPlaying(true);
+      } else {
+        setIsPlaying(false);
+      }
     };
 
-    const handleError = (event: Event) => {
+    // Set up event listeners
+    audio.addEventListener('canplay', setupAudioPlayback);
+    audio.addEventListener('error', (event: Event) => {
       if (mounted) {
         const error = event instanceof ErrorEvent ? event.message : 'Unknown audio error';
         console.error('Audio error:', error);
@@ -86,11 +106,7 @@ export const VoiceParticipant = ({
         setIsPlaying(false);
         toast.error(`Audio error for ${username}: ${error}`);
       }
-    };
-
-    // Add event listeners
-    audio.addEventListener('canplay', handleCanPlay);
-    audio.addEventListener('error', handleError);
+    });
 
     // Initial setup
     setupAudioPlayback();
@@ -99,14 +115,17 @@ export const VoiceParticipant = ({
     return () => {
       mounted = false;
       if (audio) {
-        audio.removeEventListener('canplay', handleCanPlay);
-        audio.removeEventListener('error', handleError);
+        audio.removeEventListener('canplay', setupAudioPlayback);
         audio.pause();
         audio.srcObject = null;
       }
+      processor.disconnect();
+      analyser.disconnect();
+      source.disconnect();
+      audioContext.close();
       setIsPlaying(false);
     };
-  }, [stream, username]);
+  }, [stream, username, volume]);
 
   // Update deafened state
   useEffect(() => {
