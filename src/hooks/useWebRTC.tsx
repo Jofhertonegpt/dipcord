@@ -50,6 +50,19 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         iceCandidatePoolSize: 1
       });
 
+      // Log state changes for debugging
+      pc.onconnectionstatechange = () => {
+        console.log(`Connection state with ${participantId}:`, pc.connectionState);
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        console.log(`ICE connection state with ${participantId}:`, pc.iceConnectionState);
+      };
+
+      pc.onsignalingstatechange = () => {
+        console.log(`Signaling state with ${participantId}:`, pc.signalingState);
+      };
+
       pc.onicecandidate = async (event) => {
         if (event.candidate) {
           try {
@@ -80,65 +93,22 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         }
       };
 
-      pc.onconnectionstatechange = () => {
-        console.log(`Connection state with ${participantId}:`, pc.connectionState);
-        if (pc.connectionState === 'failed') {
-          console.log('Connection failed, attempting to reconnect...');
-          pc.restartIce();
-          toast.warning('Voice connection unstable, attempting to reconnect...');
-        }
+      // Handle incoming tracks
+      pc.ontrack = (event) => {
+        console.log('Received remote track from:', participantId, event.streams[0]?.getTracks());
+        onTrack?.(event, participantId);
       };
 
-      pc.oniceconnectionstatechange = () => {
-        console.log(`ICE connection state with ${participantId}:`, pc.iceConnectionState);
-        if (pc.iceConnectionState === 'disconnected') {
-          toast.warning('Voice connection unstable, attempting to reconnect...');
-        }
-      };
-
+      // Add local tracks to the peer connection
       if (localStream.current) {
         console.log('Adding local tracks to peer connection');
         localStream.current.getTracks().forEach(track => {
           if (localStream.current) {
-            console.log('Adding track:', track.kind);
+            console.log('Adding track:', track.kind, track.enabled, track.readyState);
             pc.addTrack(track, localStream.current);
           }
         });
       }
-
-      pc.onnegotiationneeded = async () => {
-        try {
-          console.log('Negotiation needed, creating offer...');
-          const offer = await pc.createOffer({
-            offerToReceiveAudio: true,
-            offerToReceiveVideo: false
-          });
-          await pc.setLocalDescription(offer);
-          
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) throw new Error('User not authenticated');
-
-          const payload: SerializablePayload = {
-            type: offer.type,
-            sdp: offer.sdp
-          };
-
-          await supabase.from('voice_signaling').insert({
-            channel_id: channelId,
-            sender_id: user.id,
-            receiver_id: participantId,
-            type: 'offer',
-            payload: payload as Json
-          });
-        } catch (error) {
-          handleError(error as Error, 'Negotiation');
-        }
-      };
-
-      pc.ontrack = (event) => {
-        console.log('Received remote track from:', participantId);
-        onTrack?.(event, participantId);
-      };
 
       peerConnections.current.set(participantId, pc);
       return pc;
@@ -168,6 +138,7 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
             type: payload.type,
             sdp: payload.sdp
           }));
+          
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           
@@ -220,9 +191,7 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 48000,
-          channelCount: 2
+          autoGainControl: true
         },
         video: false
       });
