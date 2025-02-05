@@ -2,9 +2,10 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { NotificationPopover } from "@/components/notifications/NotificationPopover";
 
 interface Server {
   id: string;
@@ -67,6 +68,13 @@ export const ServerGrid = () => {
             </p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-2">
+              <div className="group relative flex flex-col p-6 rounded-lg glass-morphism hover:bg-white/10 transition-all duration-200">
+                <NotificationPopover />
+                <h3 className="text-xl font-semibold mb-2 text-foreground mt-4">Notifications</h3>
+                <p className="text-sm text-muted-foreground">
+                  Check your latest notifications and updates
+                </p>
+              </div>
               {servers?.map((server) => (
                 <button
                   key={server.id}
@@ -81,14 +89,6 @@ export const ServerGrid = () => {
                       {server.description}
                     </p>
                   )}
-                  <div className="mt-4 flex items-center justify-between">
-                    <div className="text-xs text-muted-foreground">
-                      Click to join
-                    </div>
-                    <div className="h-1 w-16 bg-primary/20 rounded-full overflow-hidden">
-                      <div className="h-full w-1/3 bg-primary rounded-full" />
-                    </div>
-                  </div>
                 </button>
               ))}
             </div>
