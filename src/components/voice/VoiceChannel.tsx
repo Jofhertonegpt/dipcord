@@ -136,18 +136,20 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
         }
       });
 
-      // Handle incoming tracks
-      peerConnection.current.ontrack = (event) => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        handleIncomingTrack(event, user.id);
+      // Handle incoming tracks - Now with async function
+      peerConnection.current.ontrack = async (event) => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+          handleIncomingTrack(event, user.id);
+        } catch (error) {
+          console.error("Error handling incoming track:", error);
+        }
       };
 
       // Set up ICE candidate handling
       peerConnection.current.onicecandidate = async (event) => {
         if (event.candidate) {
-          // Here you would send the ICE candidate to the other peer
-          // This would typically be done through your signaling server
           console.log("New ICE candidate:", event.candidate);
         }
       };
