@@ -17,9 +17,7 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       console.log('Creating peer connection for participant:', participantId);
       
       const pc = new RTCPeerConnection({
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' }
-        ]
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
       });
 
       // Add local tracks to the peer connection
@@ -37,14 +35,6 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         if (event.candidate) {
           console.log('New ICE candidate:', event.candidate);
           
-          // Convert RTCIceCandidate to a plain object
-          const candidateJson = {
-            candidate: event.candidate.candidate,
-            sdpMLineIndex: event.candidate.sdpMLineIndex,
-            sdpMid: event.candidate.sdpMid,
-            usernameFragment: event.candidate.usernameFragment
-          } as Json;
-
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) return;
 
@@ -53,7 +43,12 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
             sender_id: user.id,
             receiver_id: participantId,
             type: 'ice-candidate',
-            payload: candidateJson
+            payload: {
+              candidate: event.candidate.candidate,
+              sdpMLineIndex: event.candidate.sdpMLineIndex,
+              sdpMid: event.candidate.sdpMid,
+              usernameFragment: event.candidate.usernameFragment
+            } as Json
           });
         }
       };
