@@ -31,7 +31,7 @@ export const VoiceParticipant = ({
 
   useEffect(() => {
     if (!audioRef.current || !stream) {
-      console.log('No audio element or stream available for:', username);
+      console.log(`[${username}] No audio element or stream available`);
       return;
     }
 
@@ -42,12 +42,14 @@ export const VoiceParticipant = ({
       try {
         if (!audioContext.current) {
           audioContext.current = new AudioContext();
+          console.log(`[${username}] Created new AudioContext`);
         }
 
         const analyser = audioContext.current.createAnalyser();
         analyser.fftSize = 2048;
         const source = audioContext.current.createMediaStreamSource(stream);
         source.connect(analyser);
+        console.log(`[${username}] Audio analysis setup complete`);
 
         const bufferLength = analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
@@ -59,7 +61,7 @@ export const VoiceParticipant = ({
           const average = dataArray.reduce((a, b) => a + b) / bufferLength;
           
           if (average > 30 && !isMuted) {
-            console.log(`${username} is speaking - Audio level:`, average.toFixed(2));
+            console.log(`[${username}] Speaking detected - Audio level: ${average.toFixed(2)}`);
             setIsSpeakingState(true);
           } else {
             setIsSpeakingState(false);
@@ -72,16 +74,28 @@ export const VoiceParticipant = ({
         audioAnalyser.current = analyser;
 
       } catch (error) {
-        console.error('Error setting up audio analysis:', error);
+        console.error(`[${username}] Error setting up audio analysis:`, error);
       }
     };
 
     const setupAudioPlayback = async () => {
       try {
-        console.log('Setting up audio playback for:', username);
-        console.log('Stream tracks:', stream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, state: t.readyState })));
+        console.log(`[${username}] Setting up audio playback`);
+        console.log(`[${username}] Stream tracks:`, stream.getTracks().map(t => ({
+          kind: t.kind,
+          enabled: t.enabled,
+          state: t.readyState,
+          muted: t.muted,
+          id: t.id
+        })));
         
         setAudioError(null);
+        
+        // Force audio context resume if it's suspended
+        if (audioContext.current?.state === 'suspended') {
+          console.log(`[${username}] Resuming suspended audio context`);
+          await audioContext.current.resume();
+        }
         
         audio.muted = false;
         audio.volume = volume;
@@ -93,21 +107,22 @@ export const VoiceParticipant = ({
         if (playPromise !== undefined) {
           await playPromise;
           if (mounted) {
-            console.log('Audio playing successfully for:', username);
+            console.log(`[${username}] Audio playing successfully`);
             setIsPlaying(true);
             setupAudioAnalysis();
           }
         }
       } catch (error: any) {
         if (mounted) {
-          console.error('Audio playback failed for', username, ':', error);
+          console.error(`[${username}] Audio playback failed:`, error);
           setAudioError(error.message);
           setIsPlaying(false);
           toast.error(`Audio playback error for ${username}: ${error.message}`);
           
+          // Attempt recovery after a short delay
           setTimeout(() => {
             if (mounted && audio) {
-              console.log('Attempting audio recovery for:', username);
+              console.log(`[${username}] Attempting audio recovery`);
               setupAudioPlayback();
             }
           }, 1000);
@@ -121,7 +136,7 @@ export const VoiceParticipant = ({
     audio.addEventListener('error', (event: Event) => {
       if (mounted) {
         const error = event instanceof ErrorEvent ? event.message : 'Unknown audio error';
-        console.error('Audio error for', username, ':', error);
+        console.error(`[${username}] Audio error:`, error);
         setAudioError(error);
         setIsPlaying(false);
         toast.error(`Audio error for ${username}: ${error}`);
@@ -135,7 +150,7 @@ export const VoiceParticipant = ({
     return () => {
       mounted = false;
       if (audio) {
-        console.log('Cleaning up audio for:', username);
+        console.log(`[${username}] Cleaning up audio`);
         audio.removeEventListener('canplay', setupAudioPlayback);
         audio.pause();
         audio.srcObject = null;
@@ -153,7 +168,7 @@ export const VoiceParticipant = ({
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.muted = isDeafened || false;
-      console.log('Updated deafened state for', username, ':', isDeafened);
+      console.log(`[${username}] Updated deafened state:`, isDeafened);
     }
   }, [isDeafened, username]);
 
@@ -168,13 +183,11 @@ export const VoiceParticipant = ({
             {username.substring(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>
-        {/* Speaking indicator ring */}
         {isSpeakingState && !audioError && isPlaying && (
           <span className="absolute inset-0 animate-pulse">
             <span className="absolute inset-0 rounded-full border-2 border-green-500"></span>
           </span>
         )}
-        {/* Status indicators */}
         {isSpeakingState && !audioError && isPlaying && (
           <span className="absolute -right-1 -bottom-1">
             <Volume2 className="h-4 w-4 text-green-500" />
