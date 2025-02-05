@@ -13,6 +13,8 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
   const [isConnected, setIsConnected] = useState(false);
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const localStream = useRef<MediaStream | null>(null);
+  const remoteStreams = useRef<Map<string, MediaStream>>(new Map());
+  const audioElements = useRef<Map<string, HTMLAudioElement>>(new Map());
   const queryClient = useQueryClient();
 
   // Check if user is already in the channel
@@ -40,7 +42,6 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // If user is already in the channel, don't try to join again
       if (existingParticipant) {
         return existingParticipant;
       }
@@ -94,6 +95,22 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     },
   });
 
+  const handleIncomingTrack = (event: RTCTrackEvent, participantId: string) => {
+    const [stream] = event.streams;
+    if (!stream) return;
+
+    remoteStreams.current.set(participantId, stream);
+    let audio = audioElements.current.get(participantId);
+    
+    if (!audio) {
+      audio = new Audio();
+      audio.autoplay = true;
+      audioElements.current.set(participantId, audio);
+    }
+    
+    audio.srcObject = stream;
+  };
+
   const initializeVoiceChat = async () => {
     try {
       localStream.current = await navigator.mediaDevices.getUserMedia({
@@ -101,15 +118,39 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
         video: false,
       });
 
-      peerConnection.current = new RTCPeerConnection({
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-      });
+      const iceServers = [
+        { urls: "stun:stun.l.google.com:19302" },
+        {
+          urls: "turn:global.turn.twilio.com:3478",
+          username: "your_username", // You would need to replace these with actual TURN credentials
+          credential: "your_credential",
+        },
+      ];
 
+      peerConnection.current = new RTCPeerConnection({ iceServers });
+
+      // Add local tracks to the peer connection
       localStream.current.getTracks().forEach((track) => {
         if (peerConnection.current && localStream.current) {
           peerConnection.current.addTrack(track, localStream.current);
         }
       });
+
+      // Handle incoming tracks
+      peerConnection.current.ontrack = (event) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        handleIncomingTrack(event, user.id);
+      };
+
+      // Set up ICE candidate handling
+      peerConnection.current.onicecandidate = async (event) => {
+        if (event.candidate) {
+          // Here you would send the ICE candidate to the other peer
+          // This would typically be done through your signaling server
+          console.log("New ICE candidate:", event.candidate);
+        }
+      };
 
       await joinChannel.mutateAsync();
       setIsConnected(true);
@@ -128,7 +169,9 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
   };
 
   const handleDeafenChange = (isDeafened: boolean) => {
-    // Handle deafening logic here when we implement incoming audio
+    audioElements.current.forEach((audio) => {
+      audio.muted = isDeafened;
+    });
   };
 
   const cleanup = async () => {
@@ -142,6 +185,14 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
       peerConnection.current = null;
     }
 
+    // Clean up audio elements
+    audioElements.current.forEach((audio) => {
+      audio.srcObject = null;
+      audio.remove();
+    });
+    audioElements.current.clear();
+    remoteStreams.current.clear();
+
     if (isConnected) {
       await leaveChannel.mutateAsync();
     }
@@ -149,7 +200,6 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
   };
 
   useEffect(() => {
-    // If user is already in the channel, set connected state
     if (existingParticipant) {
       setIsConnected(true);
     }
@@ -158,6 +208,26 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
       cleanup();
     };
   }, [existingParticipant]);
+
+  // Set up real-time updates for voice participants
+  useEffect(() => {
+    const channel = supabase
+      .channel(`voice-${channelId}`)
+      .on('presence', { event: 'sync' }, () => {
+        console.log('Voice presence synced');
+      })
+      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        console.log('New participant joined:', newPresences);
+      })
+      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        console.log('Participant left:', leftPresences);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [channelId]);
 
   return (
     <div className="flex flex-col h-full">
