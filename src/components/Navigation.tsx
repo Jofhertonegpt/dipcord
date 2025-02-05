@@ -1,5 +1,5 @@
 import { useLocation, Link } from "react-router-dom";
-import { Home, Server, MessageSquare, LogOut, Settings } from "lucide-react";
+import { Home, Server, MessageSquare, LogOut, Settings, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -42,7 +42,7 @@ export const Navigation = () => {
               isActive("/feed") ? "bg-white/10" : ""
             }`}
           >
-            <Home className="h-5 w-5" />
+            <X className="h-5 w-5" />
           </Button>
         </Link>
         <Link to="/servers">
