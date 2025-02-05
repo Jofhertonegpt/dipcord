@@ -182,7 +182,7 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
     
     try {
       let pc = peerConnections.current.get(sender_id);
-      
+
       if (type === 'ice-candidate' && !pc) {
         console.log('Storing ICE candidate for later processing');
         const candidates = pendingIceCandidates.current.get(sender_id) || [];
