@@ -118,16 +118,18 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
         video: false,
       });
 
-      const iceServers = [
-        { urls: "stun:stun.l.google.com:19302" },
-        {
-          urls: "turn:global.turn.twilio.com:3478",
-          username: "your_username", // You would need to replace these with actual TURN credentials
-          credential: "your_credential",
-        },
-      ];
+      // Get TURN server credentials from Supabase Edge Function
+      const { data: iceServers, error } = await supabase.functions.invoke('get-turn-credentials');
+      
+      if (error) {
+        throw new Error('Failed to get TURN credentials');
+      }
 
-      peerConnection.current = new RTCPeerConnection({ iceServers });
+      peerConnection.current = new RTCPeerConnection({ 
+        iceServers: iceServers || [
+          { urls: "stun:stun.l.google.com:19302" }
+        ]
+      });
 
       // Add local tracks to the peer connection
       localStream.current.getTracks().forEach((track) => {
@@ -136,7 +138,7 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
         }
       });
 
-      // Handle incoming tracks - Now with async function
+      // Handle incoming tracks
       peerConnection.current.ontrack = async (event) => {
         try {
           const { data: { user } } = await supabase.auth.getUser();
