@@ -18,6 +18,7 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
   const [disconnectCount, setDisconnectCount] = useState(0);
   const disconnectTimerRef = useRef<NodeJS.Timeout>();
   const joinSoundRef = useRef<HTMLAudioElement>();
+  const leaveSoundRef = useRef<HTMLAudioElement>();
   const queryClient = useQueryClient();
 
   const { isInitialized, initializeWebRTC, cleanup, localStream } = useWebRTC({
@@ -70,6 +71,24 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     },
     enabled: !!channelId,
   });
+
+  useEffect(() => {
+    // Initialize sounds
+    joinSoundRef.current = new Audio("/sounds/join.mp3");
+    joinSoundRef.current.volume = 0.5;
+    
+    leaveSoundRef.current = new Audio("/sounds/leave.mp3");
+    leaveSoundRef.current.volume = 0.5;
+
+    return () => {
+      if (joinSoundRef.current) {
+        joinSoundRef.current = undefined;
+      }
+      if (leaveSoundRef.current) {
+        leaveSoundRef.current = undefined;
+      }
+    };
+  }, []);
 
   const joinChannel = useMutation({
     mutationFn: async () => {
@@ -135,6 +154,10 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
       cleanup();
       toast.success("Left voice channel");
       setDisconnectCount(0);
+      // Play leave sound
+      if (leaveSoundRef.current) {
+        leaveSoundRef.current.play().catch(console.error);
+      }
     },
     onError: (error: Error) => {
       toast.error(`Failed to leave channel: ${error.message}`);
