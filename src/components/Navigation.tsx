@@ -4,6 +4,7 @@ import { Button } from "./ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { NotificationPopover } from "./notifications/NotificationPopover";
 
 export const Navigation = () => {
   const location = useLocation();
@@ -67,6 +68,7 @@ export const Navigation = () => {
             <MessageSquare className="h-5 w-5" />
           </Button>
         </Link>
+        <NotificationPopover />
         <Link to="/settings">
           <Button
             variant="ghost"
@@ -89,4 +91,4 @@ export const Navigation = () => {
       </div>
     </nav>
   );
-};
+}
