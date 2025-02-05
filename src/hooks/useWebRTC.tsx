@@ -1,17 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Json } from '@/integrations/supabase/types';
 
 interface WebRTCConfig {
   channelId: string;
   onTrack?: (event: RTCTrackEvent, participantId: string) => void;
 }
 
-// Helper type for serializable WebRTC payloads
+// Helper type for serializable WebRTC payloads that matches Json type
 type SerializablePayload = {
   type?: string;
   sdp?: string;
-  candidate?: RTCIceCandidateInit;
+  candidate?: {
+    candidate: string;
+    sdpMLineIndex: number | null;
+    sdpMid: string | null;
+    usernameFragment: string | null;
+  };
 };
 
 export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
@@ -59,7 +65,12 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
             if (!user) throw new Error('User not authenticated');
 
             const payload: SerializablePayload = {
-              candidate: event.candidate.toJSON()
+              candidate: {
+                candidate: event.candidate.candidate,
+                sdpMLineIndex: event.candidate.sdpMLineIndex,
+                sdpMid: event.candidate.sdpMid,
+                usernameFragment: event.candidate.usernameFragment
+              }
             };
 
             await supabase.from('voice_signaling').insert({
@@ -67,7 +78,7 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
               sender_id: user.id,
               receiver_id: participantId,
               type: 'ice-candidate',
-              payload
+              payload: payload as Json
             });
           } catch (error) {
             handleError(error as Error, 'ICE candidate signaling');
@@ -109,7 +120,7 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
             sender_id: user.id,
             receiver_id: participantId,
             type: 'offer',
-            payload
+            payload: payload as Json
           });
         } catch (error) {
           handleError(error as Error, 'Negotiation');
