@@ -5,6 +5,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { ChevronDown, ChevronUp, Loader2, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { NotificationPopover } from "@/components/notifications/NotificationPopover";
 
 interface Server {
@@ -68,15 +73,22 @@ export const ServerGrid = () => {
             </p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-2">
-              <div className="group relative bg-white/50 hover:bg-white/60 transition-all duration-200 rounded-lg shadow-sm">
-                <div className="p-6">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <div className="group relative bg-white/50 hover:bg-white/60 transition-all duration-200 rounded-lg shadow-sm cursor-pointer">
+                    <div className="p-6">
+                      <Bell className="h-5 w-5 mb-4" />
+                      <h3 className="text-xl font-semibold mb-2 text-foreground">Notifications</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Check your latest notifications and updates
+                      </p>
+                    </div>
+                  </div>
+                </PopoverTrigger>
+                <PopoverContent className="w-80" align="start">
                   <NotificationPopover />
-                  <h3 className="text-xl font-semibold mb-2 text-foreground mt-4">Notifications</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Check your latest notifications and updates
-                  </p>
-                </div>
-              </div>
+                </PopoverContent>
+              </Popover>
               {servers?.map((server) => (
                 <button
                   key={server.id}
