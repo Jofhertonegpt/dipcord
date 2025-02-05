@@ -38,16 +38,15 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       const pc = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
-          {
-            urls: 'turn:global.turn.twilio.com:3478?transport=udp',
-            username: 'your_username',
-            credential: 'your_credential'
-          }
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:stun3.l.google.com:19302' },
+          { urls: 'stun:stun4.l.google.com:19302' }
         ],
         iceTransportPolicy: 'all',
         bundlePolicy: 'max-bundle',
         rtcpMuxPolicy: 'require',
-        iceCandidatePoolSize: 1
+        iceCandidatePoolSize: 0
       });
 
       pc.onicecandidate = async (event) => {
