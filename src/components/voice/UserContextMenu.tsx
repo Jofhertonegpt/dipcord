@@ -20,8 +20,6 @@ import {
   User,
   Mic,
   MicOff,
-  Bell,
-  BellOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +31,8 @@ interface UserContextMenuProps {
   username: string;
   isMuted?: boolean;
   isDeafened?: boolean;
+  onVolumeChange?: (volume: number) => void;
+  currentVolume?: number;
 }
 
 export const UserContextMenu = ({
@@ -41,14 +41,14 @@ export const UserContextMenu = ({
   username,
   isMuted,
   isDeafened,
+  onVolumeChange,
+  currentVolume = 0.5,
 }: UserContextMenuProps) => {
-  const [volume, setVolume] = useState(100);
+  const [volume, setVolume] = useState(currentVolume * 100);
   const queryClient = useQueryClient();
 
   const blockUserMutation = useMutation({
     mutationFn: async () => {
-      // In a real implementation, you would add a blocked_users table
-      // and insert a record there
       toast.success(`Blocked ${username}`);
     },
   });
@@ -89,6 +89,14 @@ export const UserContextMenu = ({
     },
   });
 
+  const handleVolumeChange = (value: number[]) => {
+    const newVolume = value[0];
+    setVolume(newVolume);
+    if (onVolumeChange) {
+      onVolumeChange(newVolume / 100);
+    }
+  };
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -123,7 +131,7 @@ export const UserContextMenu = ({
           <ContextMenuSubContent className="w-48 p-2">
             <Slider
               value={[volume]}
-              onValueChange={(value) => setVolume(value[0])}
+              onValueChange={handleVolumeChange}
               max={200}
               step={1}
             />

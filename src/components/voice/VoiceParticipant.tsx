@@ -24,10 +24,18 @@ export const VoiceParticipant = ({
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioContext = useRef<AudioContext | null>(null);
   const audioAnalyser = useRef<AnalyserNode | null>(null);
+  const gainNode = useRef<GainNode | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
-  const [volume, setVolume] = useState(1);
+  const [volume, setVolume] = useState(0.5); // Default to 50%
   const [isSpeakingState, setIsSpeakingState] = useState(false);
+
+  const handleVolumeChange = (newVolume: number) => {
+    setVolume(newVolume);
+    if (gainNode.current) {
+      gainNode.current.gain.value = newVolume;
+    }
+  };
 
   useEffect(() => {
     if (!audioRef.current || !stream) {
@@ -47,8 +55,14 @@ export const VoiceParticipant = ({
 
         const analyser = audioContext.current.createAnalyser();
         analyser.fftSize = 2048;
+        
+        // Create and configure gain node
+        gainNode.current = audioContext.current.createGain();
+        gainNode.current.gain.value = volume;
+
         const source = audioContext.current.createMediaStreamSource(stream);
-        source.connect(analyser);
+        source.connect(gainNode.current);
+        gainNode.current.connect(analyser);
         console.log(`[${username}] Audio analysis setup complete`);
 
         const bufferLength = analyser.frequencyBinCount;
@@ -91,7 +105,6 @@ export const VoiceParticipant = ({
         
         setAudioError(null);
         
-        // Force audio context resume if it's suspended
         if (audioContext.current?.state === 'suspended') {
           console.log(`[${username}] Resuming suspended audio context`);
           await audioContext.current.resume();
@@ -119,7 +132,6 @@ export const VoiceParticipant = ({
           setIsPlaying(false);
           toast.error(`Audio playback error for ${username}: ${error.message}`);
           
-          // Attempt recovery after a short delay
           setTimeout(() => {
             if (mounted && audio) {
               console.log(`[${username}] Attempting audio recovery`);
@@ -130,7 +142,6 @@ export const VoiceParticipant = ({
       }
     };
 
-    // Set up event listeners
     audio.addEventListener('canplay', setupAudioPlayback);
     
     audio.addEventListener('error', (event: Event) => {
@@ -143,10 +154,8 @@ export const VoiceParticipant = ({
       }
     });
 
-    // Initial setup
     setupAudioPlayback();
 
-    // Cleanup
     return () => {
       mounted = false;
       if (audio) {
@@ -158,13 +167,15 @@ export const VoiceParticipant = ({
       if (audioAnalyser.current) {
         audioAnalyser.current.disconnect();
       }
+      if (gainNode.current) {
+        gainNode.current.disconnect();
+      }
       if (audioContext.current) {
         audioContext.current.close();
       }
     };
   }, [stream, username, volume, isMuted]);
 
-  // Update deafened state
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.muted = isDeafened || false;
@@ -173,52 +184,61 @@ export const VoiceParticipant = ({
   }, [isDeafened, username]);
 
   return (
-    <div className={`flex items-center gap-3 p-2 rounded-lg ${
-      isSpeakingState ? 'bg-green-500/10' : 'hover:bg-white/5'
-    }`}>
-      <div className="relative">
-        <Avatar className="h-8 w-8 relative">
-          <AvatarImage src={avatarUrl || ''} />
-          <AvatarFallback>
-            {username.substring(0, 2).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-        {isSpeakingState && !audioError && isPlaying && (
-          <span className="absolute inset-0 animate-pulse">
-            <span className="absolute inset-0 rounded-full border-2 border-green-500"></span>
-          </span>
-        )}
-        {isSpeakingState && !audioError && isPlaying && (
-          <span className="absolute -right-1 -bottom-1">
-            <Volume2 className="h-4 w-4 text-green-500" />
-          </span>
-        )}
-        {audioError && (
-          <span className="absolute -right-1 -bottom-1">
-            <VolumeX className="h-4 w-4 text-red-500" />
-          </span>
-        )}
-      </div>
-      
-      <span className="flex-1 text-sm font-medium">
-        {username}
-        {audioError && (
-          <span className="text-xs text-red-400 ml-2">
-            Audio error
-          </span>
-        )}
-      </span>
-      
-      <div className="flex items-center gap-2">
-        {isMuted && <MicOff className="h-4 w-4 text-muted-foreground" />}
-        {!isMuted && <Mic className="h-4 w-4 text-green-500" />}
-      </div>
+    <UserContextMenu 
+      userId={username} 
+      username={username}
+      isMuted={isMuted}
+      isDeafened={isDeafened}
+      onVolumeChange={handleVolumeChange}
+      currentVolume={volume}
+    >
+      <div className={`flex items-center gap-3 p-2 rounded-lg ${
+        isSpeakingState ? 'bg-green-500/10' : 'hover:bg-white/5'
+      }`}>
+        <div className="relative">
+          <Avatar className="h-8 w-8 relative">
+            <AvatarImage src={avatarUrl || ''} />
+            <AvatarFallback>
+              {username.substring(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          {isSpeakingState && !audioError && isPlaying && (
+            <span className="absolute inset-0 animate-pulse">
+              <span className="absolute inset-0 rounded-full border-2 border-green-500"></span>
+            </span>
+          )}
+          {isSpeakingState && !audioError && isPlaying && (
+            <span className="absolute -right-1 -bottom-1">
+              <Volume2 className="h-4 w-4 text-green-500" />
+            </span>
+          )}
+          {audioError && (
+            <span className="absolute -right-1 -bottom-1">
+              <VolumeX className="h-4 w-4 text-red-500" />
+            </span>
+          )}
+        </div>
+        
+        <span className="flex-1 text-sm font-medium">
+          {username}
+          {audioError && (
+            <span className="text-xs text-red-400 ml-2">
+              Audio error
+            </span>
+          )}
+        </span>
+        
+        <div className="flex items-center gap-2">
+          {isMuted && <MicOff className="h-4 w-4 text-muted-foreground" />}
+          {!isMuted && <Mic className="h-4 w-4 text-green-500" />}
+        </div>
 
-      <audio
-        ref={audioRef}
-        autoPlay
-        playsInline
-      />
-    </div>
+        <audio
+          ref={audioRef}
+          autoPlay
+          playsInline
+        />
+      </div>
+    </UserContextMenu>
   );
 };
