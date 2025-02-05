@@ -35,27 +35,38 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
 
   const fetchIceServers = async () => {
     try {
-      const { data: iceServers, error } = await supabase
+      // Default free STUN servers
+      const defaultServers = [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' }
+      ];
+
+      const { data: customServers, error } = await supabase
         .from('ice_servers')
         .select('*')
         .eq('is_active', true);
 
-      if (error) throw error;
-
-      if (!iceServers?.length) {
-        console.warn('No ICE servers found in database, falling back to default STUN server');
-        return [{ urls: 'stun:stun.l.google.com:19302' }];
+      if (error) {
+        console.warn('Error fetching ICE servers:', error);
+        return defaultServers;
       }
 
-      console.log('Fetched ICE servers:', iceServers);
-      return iceServers.map(server => ({
+      if (!customServers?.length) {
+        console.log('No custom ICE servers found, using default STUN servers');
+        return defaultServers;
+      }
+
+      console.log('Using custom ICE servers:', customServers);
+      return customServers.map(server => ({
         urls: server.urls,
         username: server.username,
         credential: server.credential
       }));
     } catch (error) {
-      console.error('Error fetching ICE servers:', error);
-      // Fallback to public STUN server if database query fails
+      console.error('Error in fetchIceServers:', error);
       return [{ urls: 'stun:stun.l.google.com:19302' }];
     }
   };
