@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { VoiceParticipantList } from "./VoiceParticipantList";
 import { VoiceControls } from "./VoiceControls";
 import { supabase } from "@/integrations/supabase/client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 interface VoiceChannelProps {
@@ -15,12 +15,37 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
   const localStream = useRef<MediaStream | null>(null);
   const queryClient = useQueryClient();
 
+  // Check if user is already in the channel
+  const { data: existingParticipant } = useQuery({
+    queryKey: ['voice-participant', channelId],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data, error } = await supabase
+        .from('voice_channel_participants')
+        .select('*')
+        .eq('channel_id', channelId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!channelId,
+  });
+
   const joinChannel = useMutation({
     mutationFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { error } = await supabase
+      // If user is already in the channel, don't try to join again
+      if (existingParticipant) {
+        return existingParticipant;
+      }
+
+      const { data, error } = await supabase
         .from('voice_channel_participants')
         .insert([
           {
@@ -29,12 +54,16 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
             is_muted: false,
             is_deafened: false,
           },
-        ]);
+        ])
+        .select()
+        .single();
 
       if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voice-participants', channelId] });
+      queryClient.invalidateQueries({ queryKey: ['voice-participant', channelId] });
       toast.success("Joined voice channel");
     },
     onError: (error: Error) => {
@@ -57,6 +86,7 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voice-participants', channelId] });
+      queryClient.invalidateQueries({ queryKey: ['voice-participant', channelId] });
       toast.success("Left voice channel");
     },
     onError: (error: Error) => {
@@ -119,10 +149,15 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
   };
 
   useEffect(() => {
+    // If user is already in the channel, set connected state
+    if (existingParticipant) {
+      setIsConnected(true);
+    }
+
     return () => {
       cleanup();
     };
-  }, []);
+  }, [existingParticipant]);
 
   return (
     <div className="flex flex-col h-full">
