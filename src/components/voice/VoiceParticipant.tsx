@@ -27,13 +27,19 @@ export const VoiceParticipant = ({
   const [volume, setVolume] = useState(1);
 
   useEffect(() => {
-    if (!audioRef.current || !stream) return;
+    if (!audioRef.current || !stream) {
+      console.log('No audio element or stream available for:', username);
+      return;
+    }
 
     const audio = audioRef.current;
     let mounted = true;
 
     const setupAudioPlayback = async () => {
       try {
+        console.log('Setting up audio playback for:', username);
+        console.log('Stream tracks:', stream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, state: t.readyState })));
+        
         setAudioError(null);
         
         // Configure audio element
@@ -57,7 +63,15 @@ export const VoiceParticipant = ({
         }
       } catch (error: any) {
         if (mounted) {
-          console.error('Audio playback failed:', error);
+          console.error('Audio playback failed for', username, ':', error);
+          console.error('Audio element state:', {
+            muted: audio.muted,
+            volume: audio.volume,
+            readyState: audio.readyState,
+            paused: audio.paused,
+            currentTime: audio.currentTime,
+            error: audio.error
+          });
           setAudioError(error.message);
           setIsPlaying(false);
           toast.error(`Audio playback error for ${username}: ${error.message}`);
@@ -98,11 +112,15 @@ export const VoiceParticipant = ({
     };
 
     // Set up event listeners
-    audio.addEventListener('canplay', setupAudioPlayback);
+    audio.addEventListener('canplay', () => {
+      console.log('Audio can play for:', username);
+      setupAudioPlayback();
+    });
+    
     audio.addEventListener('error', (event: Event) => {
       if (mounted) {
         const error = event instanceof ErrorEvent ? event.message : 'Unknown audio error';
-        console.error('Audio error:', error);
+        console.error('Audio error for', username, ':', error);
         setAudioError(error);
         setIsPlaying(false);
         toast.error(`Audio error for ${username}: ${error}`);
@@ -116,6 +134,7 @@ export const VoiceParticipant = ({
     return () => {
       mounted = false;
       if (audio) {
+        console.log('Cleaning up audio for:', username);
         audio.removeEventListener('canplay', setupAudioPlayback);
         audio.pause();
         audio.srcObject = null;
@@ -132,8 +151,9 @@ export const VoiceParticipant = ({
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.muted = isDeafened || false;
+      console.log('Updated deafened state for', username, ':', isDeafened);
     }
-  }, [isDeafened]);
+  }, [isDeafened, username]);
 
   return (
     <div className={`flex items-center gap-3 p-2 rounded-lg ${
