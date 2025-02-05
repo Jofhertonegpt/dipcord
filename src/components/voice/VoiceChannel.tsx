@@ -100,6 +100,8 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voice-participants', channelId] });
       queryClient.invalidateQueries({ queryKey: ['voice-participant', channelId] });
+      setIsConnected(false);
+      cleanup();
       toast.success("Left voice channel");
     },
     onError: (error: Error) => {
@@ -125,18 +127,21 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     });
   };
 
+  // Initialize connection if user is already in channel
   useEffect(() => {
-    if (existingParticipant) {
+    if (existingParticipant && !isConnected) {
+      console.log('Initializing existing voice connection');
       setIsConnected(true);
+      initializeWebRTC().catch(error => {
+        console.error('Failed to initialize WebRTC:', error);
+        toast.error('Failed to connect to voice channel');
+      });
     }
-
-    return () => {
-      cleanup();
-    };
-  }, [existingParticipant]);
+  }, [existingParticipant, isConnected]);
 
   // Set up real-time updates for voice participants
   useEffect(() => {
+    console.log('Setting up voice presence subscription');
     const channel = supabase
       .channel(`voice-${channelId}`)
       .on('presence', { event: 'sync' }, () => {
@@ -158,9 +163,12 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      if (!isConnected) {
+        console.log('Cleaning up voice presence subscription');
+        supabase.removeChannel(channel);
+      }
     };
-  }, [channelId]);
+  }, [channelId, isConnected]);
 
   return (
     <div className="flex flex-col h-full">
@@ -180,6 +188,7 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
             onClick={async () => {
               await initializeWebRTC();
               joinChannel.mutate();
+              setIsConnected(true);
             }}
             className="w-full px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
           >
@@ -196,7 +205,6 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
           <div className="p-4 border-t border-white/10">
             <button
               onClick={() => {
-                cleanup();
                 leaveChannel.mutate();
               }}
               className="w-full px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
