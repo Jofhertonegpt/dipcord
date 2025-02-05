@@ -510,6 +510,58 @@ export type Database = {
           },
         ]
       }
+      voice_signaling: {
+        Row: {
+          channel_id: string
+          created_at: string
+          id: string
+          payload: Json
+          receiver_id: string | null
+          sender_id: string
+          type: string
+        }
+        Insert: {
+          channel_id: string
+          created_at?: string
+          id?: string
+          payload: Json
+          receiver_id?: string | null
+          sender_id: string
+          type: string
+        }
+        Update: {
+          channel_id?: string
+          created_at?: string
+          id?: string
+          payload?: Json
+          receiver_id?: string | null
+          sender_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_signaling_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_signaling_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_signaling_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
