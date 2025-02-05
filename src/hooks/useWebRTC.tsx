@@ -24,6 +24,8 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
   const [error, setError] = useState<string | null>(null);
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const localStream = useRef<MediaStream | null>(null);
+  const audioContext = useRef<AudioContext | null>(null);
+  const audioAnalyser = useRef<AnalyserNode | null>(null);
 
   const handleError = (error: Error, context: string) => {
     console.error(`WebRTC Error (${context}):`, error);
@@ -118,6 +120,41 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
     }
   };
 
+  const setupAudioAnalysis = (stream: MediaStream) => {
+    try {
+      if (!audioContext.current) {
+        audioContext.current = new AudioContext();
+      }
+
+      const analyser = audioContext.current.createAnalyser();
+      analyser.fftSize = 2048;
+      const source = audioContext.current.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      const checkAudioLevel = () => {
+        if (!analyser) return;
+        
+        analyser.getByteFrequencyData(dataArray);
+        const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+        
+        if (average > 30) {
+          console.log('Local user is speaking - Audio level:', average.toFixed(2));
+        }
+        
+        requestAnimationFrame(checkAudioLevel);
+      };
+
+      checkAudioLevel();
+      audioAnalyser.current = analyser;
+
+    } catch (error) {
+      console.error('Error setting up audio analysis:', error);
+    }
+  };
+
   const handleSignalingMessage = async (message: any) => {
     const { sender_id, type, payload } = message;
     console.log('Handling signaling message:', { type, sender_id });
@@ -197,6 +234,7 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       });
       
       localStream.current = stream;
+      setupAudioAnalysis(stream);
       setIsInitialized(true);
       setError(null);
       console.log('WebRTC initialized successfully');
@@ -215,6 +253,16 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         console.log('Stopped track:', track.kind);
       });
       localStream.current = null;
+    }
+
+    if (audioContext.current) {
+      audioContext.current.close();
+      audioContext.current = null;
+    }
+
+    if (audioAnalyser.current) {
+      audioAnalyser.current.disconnect();
+      audioAnalyser.current = null;
     }
 
     peerConnections.current.forEach(pc => {
