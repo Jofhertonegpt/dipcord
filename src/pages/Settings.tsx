@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { PrivacySettings } from "@/components/settings/PrivacySettings";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
+import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -34,10 +35,11 @@ const Settings = () => {
   return (
     <div className="container max-w-2xl py-8">
       <Tabs defaultValue="profile" className="w-full space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="privacy">Privacy</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="appearance">Appearance</TabsTrigger>
         </TabsList>
         
         <TabsContent value="profile">
@@ -50,6 +52,10 @@ const Settings = () => {
 
         <TabsContent value="notifications">
           <NotificationSettings />
+        </TabsContent>
+
+        <TabsContent value="appearance">
+          <AppearanceSettings />
         </TabsContent>
       </Tabs>
     </div>
