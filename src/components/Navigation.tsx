@@ -21,8 +21,8 @@ export const Navigation = () => {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <nav className="fixed bottom-0 left-0 w-full md:top-0 md:w-16 h-16 md:h-screen bg-background border-t md:border-r border-white/10 z-50">
-      <div className="flex md:flex-col items-center justify-around h-full p-2">
+    <nav className="fixed bottom-0 left-0 w-full bg-background border-t border-white/10 z-50">
+      <div className="flex items-center justify-around h-16 p-2 max-w-screen-xl mx-auto">
         <Link to="/feed">
           <Button
             variant="ghost"

@@ -24,8 +24,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <div className="md:pl-16">
-              <Navigation />
+            <div className="pb-16">
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/feed" element={<Feed />} />
@@ -35,6 +34,7 @@ const App = () => (
                 <Route path="/settings" element={<Settings />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              <Navigation />
             </div>
           </BrowserRouter>
         </div>
