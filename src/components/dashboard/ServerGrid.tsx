@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface Server {
   id: string;
@@ -46,7 +45,7 @@ export const ServerGrid = () => {
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto bg-white/80 backdrop-blur-sm border-2 border-white/20">
+    <Card className="w-full max-w-5xl mx-auto glass-morphism">
       <div 
         className="p-4 flex items-center justify-between cursor-pointer"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -67,22 +66,29 @@ export const ServerGrid = () => {
               You haven't joined any servers yet
             </p>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 p-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-2">
               {servers?.map((server) => (
                 <button
                   key={server.id}
                   onClick={() => handleServerClick(server.id)}
-                  className="flex flex-col items-center p-4 rounded-lg transition-all hover:bg-secondary/10 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="group relative flex flex-col p-6 rounded-lg glass-morphism hover:bg-white/10 transition-all duration-200"
                 >
-                  <Avatar className="h-16 w-16 mb-2">
-                    <AvatarImage src={server.avatar_url ?? undefined} />
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      {server.name.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm font-medium text-center line-clamp-2">
+                  <h3 className="text-xl font-semibold mb-2 text-foreground group-hover:text-primary transition-colors">
                     {server.name}
-                  </span>
+                  </h3>
+                  {server.description && (
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {server.description}
+                    </p>
+                  )}
+                  <div className="mt-4 flex items-center justify-between">
+                    <div className="text-xs text-muted-foreground">
+                      Click to join
+                    </div>
+                    <div className="h-1 w-16 bg-primary/20 rounded-full overflow-hidden">
+                      <div className="h-full w-1/3 bg-primary rounded-full" />
+                    </div>
+                  </div>
                 </button>
               ))}
             </div>
