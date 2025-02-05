@@ -7,6 +7,13 @@ interface WebRTCConfig {
   onTrack?: (event: RTCTrackEvent, participantId: string) => void;
 }
 
+// Helper type for serializable WebRTC payloads
+type SerializablePayload = {
+  type?: string;
+  sdp?: string;
+  candidate?: RTCIceCandidateInit;
+};
+
 export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +41,6 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         ]
       });
 
-      // Add local tracks to the peer connection
       if (localStream.current) {
         console.log('Adding local tracks to peer connection');
         localStream.current.getTracks().forEach(track => {
@@ -44,7 +50,6 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         });
       }
 
-      // Handle ICE candidates
       pc.onicecandidate = async (event) => {
         if (event.candidate) {
           try {
@@ -53,12 +58,16 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('User not authenticated');
 
+            const payload: SerializablePayload = {
+              candidate: event.candidate.toJSON()
+            };
+
             await supabase.from('voice_signaling').insert({
               channel_id: channelId,
               sender_id: user.id,
               receiver_id: participantId,
               type: 'ice-candidate',
-              payload: event.candidate
+              payload
             });
           } catch (error) {
             handleError(error as Error, 'ICE candidate signaling');
@@ -66,17 +75,14 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         }
       };
 
-      // Handle connection state changes
       pc.onconnectionstatechange = () => {
         console.log(`Connection state with ${participantId}:`, pc.connectionState);
-        
         if (pc.connectionState === 'failed') {
           console.log('Connection failed, attempting to reconnect...');
           pc.restartIce();
         }
       };
 
-      // Handle ICE connection state changes
       pc.oniceconnectionstatechange = () => {
         console.log(`ICE connection state with ${participantId}:`, pc.iceConnectionState);
         if (pc.iceConnectionState === 'disconnected') {
@@ -84,7 +90,6 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         }
       };
 
-      // Handle negotiation needed
       pc.onnegotiationneeded = async () => {
         try {
           console.log('Negotiation needed, creating offer...');
@@ -94,19 +99,23 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) throw new Error('User not authenticated');
 
+          const payload: SerializablePayload = {
+            type: offer.type,
+            sdp: offer.sdp
+          };
+
           await supabase.from('voice_signaling').insert({
             channel_id: channelId,
             sender_id: user.id,
             receiver_id: participantId,
             type: 'offer',
-            payload: offer
+            payload
           });
         } catch (error) {
           handleError(error as Error, 'Negotiation');
         }
       };
 
-      // Handle incoming tracks
       pc.ontrack = (event) => {
         console.log('Received remote track from:', participantId);
         onTrack?.(event, participantId);
@@ -136,31 +145,42 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       switch (type) {
         case 'offer':
           console.log('Processing offer from:', sender_id);
-          await pc.setRemoteDescription(new RTCSessionDescription(payload));
+          await pc.setRemoteDescription(new RTCSessionDescription({
+            type: payload.type,
+            sdp: payload.sdp
+          }));
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) return;
 
+          const answerPayload: SerializablePayload = {
+            type: answer.type,
+            sdp: answer.sdp
+          };
+
           await supabase.from('voice_signaling').insert({
             channel_id: channelId,
             sender_id: user.id,
             receiver_id: sender_id,
             type: 'answer',
-            payload: answer
+            payload: answerPayload
           });
           break;
 
         case 'answer':
           console.log('Processing answer from:', sender_id);
-          await pc.setRemoteDescription(new RTCSessionDescription(payload));
+          await pc.setRemoteDescription(new RTCSessionDescription({
+            type: payload.type,
+            sdp: payload.sdp
+          }));
           break;
 
         case 'ice-candidate':
           console.log('Processing ICE candidate from:', sender_id);
-          if (payload) {
-            await pc.addIceCandidate(new RTCIceCandidate(payload));
+          if (payload.candidate) {
+            await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
           }
           break;
       }
