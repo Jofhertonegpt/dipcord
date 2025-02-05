@@ -76,9 +76,9 @@ export function NotificationPopover() {
     <Popover>
       <PopoverTrigger asChild>
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon"
-          className="relative hover:scale-110 transition-transform"
+          className="relative hover:scale-110 transition-transform bg-card"
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
