@@ -159,11 +159,20 @@ export const VoiceParticipant = ({
     <div className={`flex items-center gap-3 p-2 rounded-lg ${
       isSpeaking && !audioError && isPlaying ? 'bg-green-500/10' : 'hover:bg-white/5'
     }`}>
-      <Avatar className="h-8 w-8 relative">
-        <AvatarImage src={avatarUrl || ''} />
-        <AvatarFallback>
-          {username.substring(0, 2).toUpperCase()}
-        </AvatarFallback>
+      <div className="relative">
+        <Avatar className="h-8 w-8 relative">
+          <AvatarImage src={avatarUrl || ''} />
+          <AvatarFallback>
+            {username.substring(0, 2).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+        {/* Speaking indicator ring */}
+        {isSpeaking && !audioError && isPlaying && (
+          <span className="absolute inset-0 animate-pulse">
+            <span className="absolute inset-0 rounded-full border-2 border-green-500"></span>
+          </span>
+        )}
+        {/* Status indicators */}
         {isSpeaking && !audioError && isPlaying && (
           <span className="absolute -right-1 -bottom-1">
             <Volume2 className="h-4 w-4 text-green-500" />
@@ -174,7 +183,7 @@ export const VoiceParticipant = ({
             <VolumeX className="h-4 w-4 text-red-500" />
           </span>
         )}
-      </Avatar>
+      </div>
       
       <span className="flex-1 text-sm font-medium">
         {username}
