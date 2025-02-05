@@ -15,8 +15,6 @@ interface VoiceChannelProps {
 export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
   const [isConnected, setIsConnected] = useState(false);
   const [participants, setParticipants] = useState(new Map());
-  const [disconnectCount, setDisconnectCount] = useState(0);
-  const disconnectTimerRef = useRef<NodeJS.Timeout>();
   const joinSoundRef = useRef<HTMLAudioElement>();
   const leaveSoundRef = useRef<HTMLAudioElement>();
   const queryClient = useQueryClient();
@@ -153,7 +151,6 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
       setIsConnected(false);
       cleanup();
       toast.success("Left voice channel");
-      setDisconnectCount(0);
       // Play leave sound
       if (leaveSoundRef.current) {
         leaveSoundRef.current.play().catch(console.error);
@@ -181,18 +178,6 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
       }
     });
   };
-
-  useEffect(() => {
-    // Initialize join sound
-    joinSoundRef.current = new Audio("/sounds/join.mp3");
-    joinSoundRef.current.volume = 0.5;
-
-    return () => {
-      if (joinSoundRef.current) {
-        joinSoundRef.current = undefined;
-      }
-    };
-  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -250,23 +235,7 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
   }, [channelId, isConnected]);
 
   const handleDisconnect = () => {
-    setDisconnectCount(prev => prev + 1);
-    
-    // Reset disconnect count after 2 seconds
-    if (disconnectTimerRef.current) {
-      clearTimeout(disconnectTimerRef.current);
-    }
-    
-    disconnectTimerRef.current = setTimeout(() => {
-      setDisconnectCount(0);
-    }, 2000);
-
-    // Only disconnect if button was clicked twice
-    if (disconnectCount === 1) {
-      leaveChannel.mutate();
-    } else {
-      toast.info("Click again to disconnect");
-    }
+    leaveChannel.mutate();
   };
 
   return (
@@ -310,7 +279,7 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
               onClick={handleDisconnect}
               className="w-full px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
             >
-              {disconnectCount === 1 ? "Click again to disconnect" : "Disconnect"}
+              Disconnect
             </button>
           </div>
         </>
