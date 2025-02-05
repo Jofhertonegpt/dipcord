@@ -86,24 +86,23 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         iceCandidatePoolSize: 1
       });
 
-      // Log state changes for debugging
-      pc.onconnectionstatechange = () => {
-        console.log(`Connection state with ${participantId}:`, pc.connectionState);
-      };
-
+      // Enhanced ICE connection logging
       pc.oniceconnectionstatechange = () => {
-        console.log(`ICE connection state with ${participantId}:`, pc.iceConnectionState);
-      };
-
-      pc.onsignalingstatechange = () => {
-        console.log(`Signaling state with ${participantId}:`, pc.signalingState);
+        console.log(`[ICE] Connection state with ${participantId}:`, pc.iceConnectionState);
+        console.log(`[ICE] Current candidates:`, pc.localDescription?.sdp);
       };
 
       pc.onicecandidate = async (event) => {
         if (event.candidate) {
+          console.log(`[ICE] New candidate found:`, {
+            type: event.candidate.type,
+            protocol: event.candidate.protocol,
+            address: event.candidate.address,
+            port: event.candidate.port,
+            candidateType: event.candidate.candidateType
+          });
+          
           try {
-            console.log('New ICE candidate:', event.candidate);
-            
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('User not authenticated');
 
@@ -123,24 +122,50 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
               type: 'ice-candidate',
               payload: payload as Json
             });
+            
+            console.log(`[ICE] Candidate sent to ${participantId}`);
           } catch (error) {
+            console.error(`[ICE] Failed to send candidate:`, error);
             handleError(error as Error, 'ICE candidate signaling');
           }
         }
       };
 
-      // Handle incoming tracks
+      pc.onicegatheringstatechange = () => {
+        console.log(`[ICE] Gathering state with ${participantId}:`, pc.iceGatheringState);
+      };
+
+      pc.onconnectionstatechange = () => {
+        console.log(`[ICE] WebRTC connection state with ${participantId}:`, {
+          connectionState: pc.connectionState,
+          iceConnectionState: pc.iceConnectionState,
+          iceGatheringState: pc.iceGatheringState,
+          signalingState: pc.signalingState
+        });
+      };
+
+      // Handle incoming tracks with enhanced logging
       pc.ontrack = (event) => {
-        console.log('Received remote track from:', participantId, event.streams[0]?.getTracks());
+        console.log(`[ICE] Received remote track from ${participantId}:`, {
+          kind: event.track.kind,
+          enabled: event.track.enabled,
+          readyState: event.track.readyState,
+          muted: event.track.muted
+        });
         onTrack?.(event, participantId);
       };
 
-      // Add local tracks to the peer connection
+      // Add local tracks with logging
       if (localStream.current) {
-        console.log('Adding local tracks to peer connection');
+        console.log('[ICE] Adding local tracks to peer connection');
         localStream.current.getTracks().forEach(track => {
           if (localStream.current) {
-            console.log('Adding track:', track.kind, track.enabled, track.readyState);
+            console.log('[ICE] Adding track:', {
+              kind: track.kind,
+              enabled: track.enabled,
+              readyState: track.readyState,
+              muted: track.muted
+            });
             pc.addTrack(track, localStream.current);
           }
         });
