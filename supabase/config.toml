@@ -13,5 +13,5 @@ enabled = true
 port = 54323
 
 [[functions]]
-name = "get-turn-credentials"
+[functions.get-turn-credentials]
 verify_jwt = true
