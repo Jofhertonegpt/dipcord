@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { VoiceParticipantList } from "./VoiceParticipantList";
 import { VoiceControls } from "./VoiceControls";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useWebRTC } from "@/hooks/useWebRTC";
 import { VoiceParticipant } from "./VoiceParticipant";
+import { BellRing } from "lucide-react";
 
 interface VoiceChannelProps {
   channelId: string;
@@ -14,6 +15,9 @@ interface VoiceChannelProps {
 export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
   const [isConnected, setIsConnected] = useState(false);
   const [participants, setParticipants] = useState(new Map());
+  const [disconnectCount, setDisconnectCount] = useState(0);
+  const disconnectTimerRef = useRef<NodeJS.Timeout>();
+  const joinSoundRef = useRef<HTMLAudioElement>();
   const queryClient = useQueryClient();
 
   const { isInitialized, initializeWebRTC, cleanup, localStream } = useWebRTC({
@@ -29,7 +33,25 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     }
   });
 
-  // Check if user is already in the channel
+  // Check if user is already in any voice channel
+  const { data: activeVoiceParticipation } = useQuery({
+    queryKey: ['voice-participant-active'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data, error } = await supabase
+        .from('voice_channel_participants')
+        .select('channel_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Check if user is already in this specific channel
   const { data: existingParticipant } = useQuery({
     queryKey: ['voice-participant', channelId],
     queryFn: async () => {
@@ -53,6 +75,11 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     mutationFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
+
+      // Check if already in another channel
+      if (activeVoiceParticipation && activeVoiceParticipation.channel_id !== channelId) {
+        throw new Error("You are already in another voice channel");
+      }
 
       if (existingParticipant) {
         return existingParticipant;
@@ -78,6 +105,10 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
       queryClient.invalidateQueries({ queryKey: ['voice-participants', channelId] });
       queryClient.invalidateQueries({ queryKey: ['voice-participant', channelId] });
       toast.success("Joined voice channel");
+      // Play join sound
+      if (joinSoundRef.current) {
+        joinSoundRef.current.play().catch(console.error);
+      }
     },
     onError: (error: Error) => {
       toast.error(`Failed to join channel: ${error.message}`);
@@ -103,6 +134,7 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
       setIsConnected(false);
       cleanup();
       toast.success("Left voice channel");
+      setDisconnectCount(0);
     },
     onError: (error: Error) => {
       toast.error(`Failed to leave channel: ${error.message}`);
@@ -127,7 +159,18 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     });
   };
 
-  // Initialize connection if user is already in channel
+  useEffect(() => {
+    // Initialize join sound
+    joinSoundRef.current = new Audio("/sounds/join.mp3");
+    joinSoundRef.current.volume = 0.5;
+
+    return () => {
+      if (joinSoundRef.current) {
+        joinSoundRef.current = undefined;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     let mounted = true;
 
@@ -153,7 +196,6 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     };
   }, [existingParticipant, isConnected, initializeWebRTC]);
 
-  // Set up real-time updates for voice participants
   useEffect(() => {
     if (!isConnected) return;
 
@@ -184,6 +226,26 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     };
   }, [channelId, isConnected]);
 
+  const handleDisconnect = () => {
+    setDisconnectCount(prev => prev + 1);
+    
+    // Reset disconnect count after 2 seconds
+    if (disconnectTimerRef.current) {
+      clearTimeout(disconnectTimerRef.current);
+    }
+    
+    disconnectTimerRef.current = setTimeout(() => {
+      setDisconnectCount(0);
+    }, 2000);
+
+    // Only disconnect if button was clicked twice
+    if (disconnectCount === 1) {
+      leaveChannel.mutate();
+    } else {
+      toast.info("Click again to disconnect");
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto">
@@ -200,6 +262,10 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
         <div className="p-4 border-t border-white/10">
           <button
             onClick={async () => {
+              if (activeVoiceParticipation && activeVoiceParticipation.channel_id !== channelId) {
+                toast.error("You are already in another voice channel");
+                return;
+              }
               await initializeWebRTC();
               joinChannel.mutate();
               setIsConnected(true);
@@ -218,12 +284,10 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
           />
           <div className="p-4 border-t border-white/10">
             <button
-              onClick={() => {
-                leaveChannel.mutate();
-              }}
+              onClick={handleDisconnect}
               className="w-full px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
             >
-              Disconnect
+              {disconnectCount === 1 ? "Click again to disconnect" : "Disconnect"}
             </button>
           </div>
         </>
