@@ -75,13 +75,20 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
     
     for (const candidate of candidates) {
       try {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        console.log(`Added pending ICE candidate for ${participantId}`);
+        if (pc.remoteDescription) {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          console.log(`Successfully added pending ICE candidate for ${participantId}`);
+        } else {
+          console.log(`Skipping ICE candidate - remote description not set for ${participantId}`);
+          // Keep the candidate in pending state
+          continue;
+        }
       } catch (error) {
         console.error(`Failed to add pending ICE candidate for ${participantId}:`, error);
       }
     }
     
+    // Only remove processed candidates
     pendingIceCandidates.current.delete(participantId);
   };
 
@@ -168,7 +175,6 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       }
 
       peerConnections.current.set(participantId, pc);
-      await processPendingIceCandidates(pc, participantId);
       return pc;
     } catch (error) {
       handleError(error as Error, 'Peer connection creation');
