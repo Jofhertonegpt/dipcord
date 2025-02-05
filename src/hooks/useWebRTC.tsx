@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { Json } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 
 interface WebRTCConfig {
@@ -13,7 +12,6 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
   const [error, setError] = useState<string | null>(null);
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const localStream = useRef<MediaStream | null>(null);
-  const reconnectTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   const handleError = (error: Error, context: string) => {
     console.error(`WebRTC Error (${context}):`, error);
@@ -26,7 +24,14 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       console.log('Creating peer connection for participant:', participantId);
       
       const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          {
+            urls: 'turn:global.turn.twilio.com:3478?transport=udp',
+            username: 'your_username',
+            credential: 'your_credential'
+          }
+        ]
       });
 
       // Add local tracks to the peer connection
@@ -46,21 +51,14 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
             console.log('New ICE candidate:', event.candidate);
             
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-              throw new Error('User not authenticated');
-            }
+            if (!user) throw new Error('User not authenticated');
 
             await supabase.from('voice_signaling').insert({
               channel_id: channelId,
               sender_id: user.id,
               receiver_id: participantId,
               type: 'ice-candidate',
-              payload: {
-                candidate: event.candidate.candidate,
-                sdpMLineIndex: event.candidate.sdpMLineIndex,
-                sdpMid: event.candidate.sdpMid,
-                usernameFragment: event.candidate.usernameFragment
-              } as Json
+              payload: event.candidate
             });
           } catch (error) {
             handleError(error as Error, 'ICE candidate signaling');
@@ -72,30 +70,9 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       pc.onconnectionstatechange = () => {
         console.log(`Connection state with ${participantId}:`, pc.connectionState);
         
-        // Clear any existing reconnection timeout
-        if (reconnectTimeouts.current.has(participantId)) {
-          clearTimeout(reconnectTimeouts.current.get(participantId));
-          reconnectTimeouts.current.delete(participantId);
-        }
-
         if (pc.connectionState === 'failed') {
           console.log('Connection failed, attempting to reconnect...');
-          
-          // Set a timeout to attempt reconnection
-          const timeout = setTimeout(() => {
-            console.log('Attempting to restart ICE connection...');
-            pc.restartIce();
-            
-            // If still failed after restart, close and recreate connection
-            if (pc.connectionState === 'failed') {
-              console.log('ICE restart failed, recreating peer connection...');
-              pc.close();
-              peerConnections.current.delete(participantId);
-              createPeerConnection(participantId);
-            }
-          }, 5000); // Wait 5 seconds before attempting reconnection
-          
-          reconnectTimeouts.current.set(participantId, timeout);
+          pc.restartIce();
         }
       };
 
@@ -115,19 +92,14 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
           await pc.setLocalDescription(offer);
           
           const { data: { user } } = await supabase.auth.getUser();
-          if (!user) {
-            throw new Error('User not authenticated');
-          }
+          if (!user) throw new Error('User not authenticated');
 
           await supabase.from('voice_signaling').insert({
             channel_id: channelId,
             sender_id: user.id,
             receiver_id: participantId,
             type: 'offer',
-            payload: {
-              type: offer.type,
-              sdp: offer.sdp
-            } as Json
+            payload: offer
           });
         } catch (error) {
           handleError(error as Error, 'Negotiation');
@@ -176,10 +148,7 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
             sender_id: user.id,
             receiver_id: sender_id,
             type: 'answer',
-            payload: {
-              type: answer.type,
-              sdp: answer.sdp
-            } as Json
+            payload: answer
           });
           break;
 
@@ -191,22 +160,12 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         case 'ice-candidate':
           console.log('Processing ICE candidate from:', sender_id);
           if (payload) {
-            try {
-              const candidate = new RTCIceCandidate({
-                candidate: payload.candidate,
-                sdpMLineIndex: payload.sdpMLineIndex,
-                sdpMid: payload.sdpMid,
-                usernameFragment: payload.usernameFragment
-              });
-              await pc.addIceCandidate(candidate);
-            } catch (error) {
-              console.error('Error adding ICE candidate:', error);
-            }
+            await pc.addIceCandidate(new RTCIceCandidate(payload));
           }
           break;
       }
     } catch (error) {
-      console.error('Error handling signaling message:', error);
+      handleError(error as Error, 'Signaling message handling');
     }
   };
 
@@ -214,16 +173,20 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
     try {
       console.log('Initializing WebRTC');
       
-      // Check if browser supports required APIs
       if (!navigator.mediaDevices || !window.RTCPeerConnection) {
         throw new Error('WebRTC is not supported in this browser');
       }
 
-      localStream.current = await navigator.mediaDevices.getUserMedia({
-        audio: true,
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        },
         video: false
       });
       
+      localStream.current = stream;
       setIsInitialized(true);
       setError(null);
       console.log('WebRTC initialized successfully');
@@ -236,10 +199,6 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
   const cleanup = () => {
     console.log('Cleaning up WebRTC resources');
     
-    // Clear all reconnection timeouts
-    reconnectTimeouts.current.forEach(timeout => clearTimeout(timeout));
-    reconnectTimeouts.current.clear();
-
     if (localStream.current) {
       localStream.current.getTracks().forEach(track => {
         track.stop();
@@ -272,8 +231,6 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       .subscribe(status => {
         if (status === 'SUBSCRIBED') {
           console.log('Voice signaling subscription established');
-        } else if (status === 'CHANNEL_ERROR') {
-          handleError(new Error('Failed to connect to signaling channel'), 'Signaling subscription');
         }
       });
 

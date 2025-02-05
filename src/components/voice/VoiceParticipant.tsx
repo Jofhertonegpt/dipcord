@@ -22,9 +22,8 @@ export const VoiceParticipant = ({
   stream
 }: VoiceParticipantProps) => {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const [audioError, setAudioError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!audioRef.current || !stream) return;
@@ -32,61 +31,48 @@ export const VoiceParticipant = ({
     const audio = audioRef.current;
     let mounted = true;
 
-    const initializeAudioContext = async () => {
-      try {
-        // Create AudioContext only if needed
-        if (!audioContextRef.current) {
-          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-        }
-
-        // Resume AudioContext if suspended
-        if (audioContextRef.current.state === 'suspended') {
-          await audioContextRef.current.resume();
-        }
-
-        return true;
-      } catch (error) {
-        console.error('Failed to initialize AudioContext:', error);
-        return false;
-      }
-    };
-
     const setupAudioPlayback = async () => {
       try {
-        // Check browser audio support
-        if (!audio.canPlayType('audio/webm') && !audio.canPlayType('audio/ogg')) {
-          throw new Error('Browser does not support required audio formats');
-        }
+        // Reset error state
+        setAudioError(null);
 
-        // Initialize AudioContext
-        const contextInitialized = await initializeAudioContext();
-        if (!contextInitialized) {
-          throw new Error('Failed to initialize audio system');
-        }
+        // Ensure audio is unmuted and volume is set
+        audio.muted = false;
+        audio.volume = 1.0;
 
-        // Connect stream to audio element
+        // Connect stream
         audio.srcObject = stream;
-        
-        // Attempt playback
+
+        // Play audio
         const playPromise = audio.play();
         if (playPromise !== undefined) {
           await playPromise;
           if (mounted) {
             console.log('Audio playing successfully for:', username);
             setIsPlaying(true);
-            setAudioError(null);
           }
         }
-      } catch (error) {
+      } catch (error: any) {
         if (mounted) {
-          console.error('Audio setup failed:', error);
+          console.error('Audio playback failed:', error);
           setAudioError(error.message);
           setIsPlaying(false);
-          toast.error(`Audio error for ${username}: ${error.message}`);
+          
+          // Show error toast
+          toast.error(`Audio playback error for ${username}: ${error.message}`);
+          
+          // Attempt recovery
+          setTimeout(() => {
+            if (mounted && audio) {
+              console.log('Attempting audio recovery for:', username);
+              setupAudioPlayback();
+            }
+          }, 2000);
         }
       }
     };
 
+    // Set up event listeners
     const handleCanPlay = () => {
       console.log('Audio can play for:', username);
       setupAudioPlayback();
@@ -102,27 +88,32 @@ export const VoiceParticipant = ({
       }
     };
 
-    // Set up event listeners
+    // Add event listeners
     audio.addEventListener('canplay', handleCanPlay);
     audio.addEventListener('error', handleError);
 
     // Initial setup
     setupAudioPlayback();
 
-    // Cleanup function
+    // Cleanup
     return () => {
       mounted = false;
-      audio.removeEventListener('canplay', handleCanPlay);
-      audio.removeEventListener('error', handleError);
-      audio.srcObject = null;
-      setIsPlaying(false);
-      
-      if (audioContextRef.current) {
-        audioContextRef.current.close().catch(console.error);
-        audioContextRef.current = null;
+      if (audio) {
+        audio.removeEventListener('canplay', handleCanPlay);
+        audio.removeEventListener('error', handleError);
+        audio.pause();
+        audio.srcObject = null;
       }
+      setIsPlaying(false);
     };
   }, [stream, username]);
+
+  // Update deafened state
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.muted = isDeafened || false;
+    }
+  }, [isDeafened]);
 
   return (
     <div className={`flex items-center gap-3 p-2 rounded-lg ${
@@ -163,7 +154,6 @@ export const VoiceParticipant = ({
         ref={audioRef}
         autoPlay
         playsInline
-        muted={isDeafened}
       />
     </div>
   );
