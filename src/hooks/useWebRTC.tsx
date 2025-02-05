@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 
 interface WebRTCConfig {
   channelId: string;
@@ -39,12 +40,20 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       // Handle ICE candidates
       pc.onicecandidate = async (event) => {
         if (event.candidate) {
+          // Convert RTCIceCandidate to a plain object
+          const candidateJson = {
+            candidate: event.candidate.candidate,
+            sdpMLineIndex: event.candidate.sdpMLineIndex,
+            sdpMid: event.candidate.sdpMid,
+            usernameFragment: event.candidate.usernameFragment
+          } as Json;
+
           await supabase.from('voice_signaling').insert({
             channel_id: channelId,
             sender_id: (await supabase.auth.getUser()).data.user?.id,
             receiver_id: participantId,
             type: 'ice-candidate',
-            payload: event.candidate
+            payload: candidateJson
           });
         }
       };
@@ -79,12 +88,18 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           
+          // Convert RTCSessionDescription to a plain object
+          const answerJson = {
+            type: answer.type,
+            sdp: answer.sdp
+          } as Json;
+
           await supabase.from('voice_signaling').insert({
             channel_id: channelId,
             sender_id: (await supabase.auth.getUser()).data.user?.id,
             receiver_id: sender_id,
             type: 'answer',
-            payload: answer
+            payload: answerJson
           });
           break;
 
@@ -93,7 +108,14 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
           break;
 
         case 'ice-candidate':
-          await pc.addIceCandidate(new RTCIceCandidate(payload));
+          // Convert plain object back to RTCIceCandidate
+          const candidate = new RTCIceCandidate({
+            candidate: payload.candidate,
+            sdpMLineIndex: payload.sdpMLineIndex,
+            sdpMid: payload.sdpMid,
+            usernameFragment: payload.usernameFragment
+          });
+          await pc.addIceCandidate(candidate);
           break;
       }
     } catch (error) {
