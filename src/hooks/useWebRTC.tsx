@@ -55,17 +55,46 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
 
       // Handle connection state changes
       pc.onconnectionstatechange = () => {
-        console.log('Connection state changed:', pc.connectionState);
+        console.log(`Connection state with ${participantId}:`, pc.connectionState);
+        if (pc.connectionState === 'failed') {
+          console.log('Connection failed, attempting to reconnect...');
+          pc.restartIce();
+        }
       };
 
       // Handle ICE connection state changes
       pc.oniceconnectionstatechange = () => {
-        console.log('ICE connection state:', pc.iceConnectionState);
+        console.log(`ICE connection state with ${participantId}:`, pc.iceConnectionState);
+      };
+
+      // Handle negotiation needed
+      pc.onnegotiationneeded = async () => {
+        try {
+          console.log('Negotiation needed, creating offer...');
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+
+          await supabase.from('voice_signaling').insert({
+            channel_id: channelId,
+            sender_id: user.id,
+            receiver_id: participantId,
+            type: 'offer',
+            payload: {
+              type: offer.type,
+              sdp: offer.sdp
+            } as Json
+          });
+        } catch (error) {
+          console.error('Error during negotiation:', error);
+        }
       };
 
       // Handle incoming tracks
       pc.ontrack = (event) => {
-        console.log('Received remote track');
+        console.log('Received remote track from:', participantId);
         onTrack?.(event, participantId);
       };
 
@@ -85,13 +114,14 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       let pc = peerConnections.current.get(sender_id);
       
       if (!pc) {
+        console.log('Creating new peer connection for sender:', sender_id);
         pc = await createPeerConnection(sender_id);
         if (!pc) return;
       }
 
       switch (type) {
         case 'offer':
-          console.log('Processing offer');
+          console.log('Processing offer from:', sender_id);
           await pc.setRemoteDescription(new RTCSessionDescription(payload));
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
@@ -112,20 +142,24 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
           break;
 
         case 'answer':
-          console.log('Processing answer');
+          console.log('Processing answer from:', sender_id);
           await pc.setRemoteDescription(new RTCSessionDescription(payload));
           break;
 
         case 'ice-candidate':
-          console.log('Processing ICE candidate');
+          console.log('Processing ICE candidate from:', sender_id);
           if (payload) {
-            const candidate = new RTCIceCandidate({
-              candidate: payload.candidate,
-              sdpMLineIndex: payload.sdpMLineIndex,
-              sdpMid: payload.sdpMid,
-              usernameFragment: payload.usernameFragment
-            });
-            await pc.addIceCandidate(candidate);
+            try {
+              const candidate = new RTCIceCandidate({
+                candidate: payload.candidate,
+                sdpMLineIndex: payload.sdpMLineIndex,
+                sdpMid: payload.sdpMid,
+                usernameFragment: payload.usernameFragment
+              });
+              await pc.addIceCandidate(candidate);
+            } catch (error) {
+              console.error('Error adding ICE candidate:', error);
+            }
           }
           break;
       }
@@ -145,6 +179,7 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       console.log('WebRTC initialized successfully');
     } catch (error) {
       console.error('Error accessing microphone:', error);
+      throw error;
     }
   };
 
