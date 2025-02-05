@@ -51,7 +51,7 @@ export const ServerGrid = () => {
   };
 
   return (
-    <Card className="w-full max-w-5xl mx-auto glass-morphism">
+    <Card className="w-full max-w-5xl mx-auto bg-background border-border">
       <div 
         className="p-4 flex items-center justify-between cursor-pointer"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -75,14 +75,12 @@ export const ServerGrid = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-2">
               <Popover>
                 <PopoverTrigger asChild>
-                  <div className="group relative bg-white/50 hover:bg-white/60 transition-all duration-200 rounded-lg shadow-sm cursor-pointer">
-                    <div className="p-6">
-                      <Bell className="h-5 w-5 mb-4" />
-                      <h3 className="text-xl font-semibold mb-2 text-foreground">Notifications</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Check your latest notifications and updates
-                      </p>
-                    </div>
+                  <div className="group relative bg-card hover:bg-accent/10 transition-all duration-200 rounded-lg shadow-sm cursor-pointer p-6">
+                    <Bell className="h-5 w-5 mb-4 text-foreground" />
+                    <h3 className="text-xl font-semibold mb-2 text-foreground">Notifications</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Check your latest notifications and updates
+                    </p>
                   </div>
                 </PopoverTrigger>
                 <PopoverContent className="w-80" align="start">
@@ -93,7 +91,7 @@ export const ServerGrid = () => {
                 <button
                   key={server.id}
                   onClick={() => handleServerClick(server.id)}
-                  className="group relative flex flex-col p-6 rounded-lg glass-morphism hover:bg-white/10 transition-all duration-200"
+                  className="group relative flex flex-col p-6 rounded-lg bg-card hover:bg-accent/10 transition-all duration-200"
                 >
                   <h3 className="text-xl font-semibold mb-2 text-foreground group-hover:text-primary transition-colors">
                     {server.name}
