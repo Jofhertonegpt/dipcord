@@ -8,14 +8,24 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Heart, MessageSquare, Share2 } from "lucide-react";
+import { Heart, MessageSquare, Share2, ImagePlus } from "lucide-react";
 import { CommentSection } from "@/components/post/CommentSection";
+import { useFileUpload } from "@/components/message/useFileUpload";
+import { FilePreview } from "@/components/message/FilePreview";
 
 const Feed = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [newPost, setNewPost] = useState("");
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const {
+    selectedFiles,
+    fileInputRef,
+    handleFileSelect,
+    removeFile,
+    uploadFiles,
+    setSelectedFiles
+  } = useFileUpload();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -65,15 +75,20 @@ const Feed = () => {
 
   // Create post mutation
   const createPostMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({ content, mediaUrls }: { content: string; mediaUrls: string[] }) => {
       const { error } = await supabase
         .from('posts')
-        .insert([{ content, user_id: currentUser.id }]);
+        .insert([{ 
+          content, 
+          user_id: currentUser.id,
+          media_urls: mediaUrls.length > 0 ? mediaUrls : null
+        }]);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['posts'] });
       setNewPost("");
+      setSelectedFiles([]);
       toast.success("Post created successfully!");
     },
     onError: (error) => {
@@ -82,7 +97,7 @@ const Feed = () => {
     },
   });
 
-  // Like post mutation
+  // Like/Unlike mutations
   const likePostMutation = useMutation({
     mutationFn: async (postId: string) => {
       const { error } = await supabase
@@ -99,7 +114,6 @@ const Feed = () => {
     },
   });
 
-  // Unlike post mutation
   const unlikePostMutation = useMutation({
     mutationFn: async (postId: string) => {
       const { error } = await supabase
@@ -121,8 +135,19 @@ const Feed = () => {
   // Handle post submission
   const handleSubmitPost = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPost.trim()) return;
-    await createPostMutation.mutateAsync(newPost);
+    if (!newPost.trim() && selectedFiles.length === 0) return;
+
+    try {
+      let mediaUrls: string[] = [];
+      if (selectedFiles.length > 0) {
+        mediaUrls = await uploadFiles(selectedFiles);
+      }
+
+      await createPostMutation.mutateAsync({ content: newPost, mediaUrls });
+    } catch (error) {
+      toast.error("Failed to upload media");
+      console.error("Upload error:", error);
+    }
   };
 
   // Set up realtime subscription
@@ -159,17 +184,36 @@ const Feed = () => {
                 {currentUser?.email?.[0]?.toUpperCase() ?? "?"}
               </AvatarFallback>
             </Avatar>
-            <Textarea
-              value={newPost}
-              onChange={(e) => setNewPost(e.target.value)}
-              placeholder="What's on your mind?"
-              className="flex-1 min-h-[100px] bg-background"
-            />
+            <div className="flex-1 space-y-2">
+              <Textarea
+                value={newPost}
+                onChange={(e) => setNewPost(e.target.value)}
+                placeholder="What's on your mind?"
+                className="min-h-[100px] bg-background"
+              />
+              <FilePreview files={selectedFiles} onRemove={removeFile} />
+            </div>
           </div>
-          <div className="flex justify-end">
+          <div className="flex justify-between items-center">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <ImagePlus className="h-5 w-5" />
+            </Button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              className="hidden"
+              accept="image/*"
+              multiple
+            />
             <Button
               type="submit"
-              disabled={!newPost.trim() || createPostMutation.isPending}
+              disabled={(!newPost.trim() && selectedFiles.length === 0) || createPostMutation.isPending}
             >
               Post
             </Button>
@@ -196,6 +240,21 @@ const Feed = () => {
                   </span>
                 </div>
                 <p className="mt-2 text-foreground">{post.content}</p>
+                
+                {/* Media Display */}
+                {post.media_urls && post.media_urls.length > 0 && (
+                  <div className="mt-4 grid gap-2 grid-cols-1 sm:grid-cols-2">
+                    {post.media_urls.map((url: string, index: number) => (
+                      <img
+                        key={index}
+                        src={url}
+                        alt={`Post media ${index + 1}`}
+                        className="rounded-lg w-full h-auto object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => window.open(url, '_blank')}
+                      />
+                    ))}
+                  </div>
+                )}
                 
                 {/* Post Actions */}
                 <div className="flex items-center gap-4 mt-4">
