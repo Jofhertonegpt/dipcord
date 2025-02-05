@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Headphones, HeadphonesOff } from "lucide-react";
+import { Mic, MicOff, Headphones, HeadphoneOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -75,7 +75,7 @@ export const VoiceControls = ({
         onClick={handleDeafenToggle}
         className={isDeafened ? "text-red-500 hover:text-red-400" : ""}
       >
-        {isDeafened ? <HeadphonesOff /> : <Headphones />}
+        {isDeafened ? <HeadphoneOff /> : <Headphones />}
       </Button>
     </div>
   );

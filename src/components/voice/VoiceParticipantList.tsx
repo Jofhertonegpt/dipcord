@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Mic, MicOff, HeadphonesOff } from "lucide-react";
+import { Mic, MicOff, HeadphoneOff } from "lucide-react";
 
 interface VoiceParticipant {
   user: {
@@ -72,7 +72,7 @@ export const VoiceParticipantList = ({ channelId }: VoiceParticipantListProps) =
               <Mic className="h-4 w-4 text-green-500" />
             )}
             {participant.is_deafened && (
-              <HeadphonesOff className="h-4 w-4 text-muted-foreground" />
+              <HeadphoneOff className="h-4 w-4 text-muted-foreground" />
             )}
           </div>
         </div>
