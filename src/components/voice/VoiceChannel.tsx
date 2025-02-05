@@ -129,18 +129,34 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
 
   // Initialize connection if user is already in channel
   useEffect(() => {
-    if (existingParticipant && !isConnected) {
-      console.log('Initializing existing voice connection');
-      setIsConnected(true);
-      initializeWebRTC().catch(error => {
-        console.error('Failed to initialize WebRTC:', error);
-        toast.error('Failed to connect to voice channel');
-      });
-    }
-  }, [existingParticipant, isConnected]);
+    let mounted = true;
+
+    const initializeExistingConnection = async () => {
+      if (existingParticipant && !isConnected && mounted) {
+        console.log('Initializing existing voice connection');
+        try {
+          await initializeWebRTC();
+          if (mounted) {
+            setIsConnected(true);
+          }
+        } catch (error) {
+          console.error('Failed to initialize WebRTC:', error);
+          toast.error('Failed to connect to voice channel');
+        }
+      }
+    };
+
+    initializeExistingConnection();
+
+    return () => {
+      mounted = false;
+    };
+  }, [existingParticipant, isConnected, initializeWebRTC]);
 
   // Set up real-time updates for voice participants
   useEffect(() => {
+    if (!isConnected) return;
+
     console.log('Setting up voice presence subscription');
     const channel = supabase
       .channel(`voice-${channelId}`)
@@ -163,10 +179,8 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
       .subscribe();
 
     return () => {
-      if (!isConnected) {
-        console.log('Cleaning up voice presence subscription');
-        supabase.removeChannel(channel);
-      }
+      console.log('Cleaning up voice presence subscription');
+      supabase.removeChannel(channel);
     };
   }, [channelId, isConnected]);
 
