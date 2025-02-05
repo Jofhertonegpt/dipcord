@@ -26,6 +26,7 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
   const localStream = useRef<MediaStream | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
   const audioAnalyser = useRef<AnalyserNode | null>(null);
+  const pendingIceCandidates = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
 
   const handleError = (error: Error, context: string) => {
     console.error(`WebRTC Error (${context}):`, error);
@@ -35,13 +36,10 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
 
   const fetchIceServers = async () => {
     try {
-      // Default free STUN servers
+      console.log('Fetching ICE servers...');
       const defaultServers = [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
-        { urls: 'stun:stun4.l.google.com:19302' }
+        { urls: 'stun:stun1.l.google.com:19302' }
       ];
 
       const { data: customServers, error } = await supabase
@@ -55,7 +53,7 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       }
 
       if (!customServers?.length) {
-        console.log('No custom ICE servers found, using default STUN servers');
+        console.log('Using default STUN servers');
         return defaultServers;
       }
 
@@ -71,6 +69,22 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
     }
   };
 
+  const processPendingIceCandidates = async (pc: RTCPeerConnection, participantId: string) => {
+    const candidates = pendingIceCandidates.current.get(participantId) || [];
+    console.log(`Processing ${candidates.length} pending ICE candidates for ${participantId}`);
+    
+    for (const candidate of candidates) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        console.log(`Added pending ICE candidate for ${participantId}`);
+      } catch (error) {
+        console.error(`Failed to add pending ICE candidate for ${participantId}:`, error);
+      }
+    }
+    
+    pendingIceCandidates.current.delete(participantId);
+  };
+
   const createPeerConnection = async (participantId: string) => {
     try {
       console.log('Creating peer connection for participant:', participantId);
@@ -80,26 +94,24 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       
       const pc = new RTCPeerConnection({
         iceServers,
-        iceTransportPolicy: 'all',
         bundlePolicy: 'max-bundle',
         rtcpMuxPolicy: 'require',
         iceCandidatePoolSize: 1
       });
 
-      // Enhanced ICE connection logging
       pc.oniceconnectionstatechange = () => {
         console.log(`[ICE] Connection state with ${participantId}:`, pc.iceConnectionState);
-        console.log(`[ICE] Current candidates:`, pc.localDescription?.sdp);
+        console.log(`[ICE] Gathering state:`, pc.iceGatheringState);
+        console.log(`[ICE] Signaling state:`, pc.signalingState);
       };
 
       pc.onicecandidate = async (event) => {
         if (event.candidate) {
-          console.log(`[ICE] New candidate found:`, {
+          console.log(`[ICE] New candidate for ${participantId}:`, {
             type: event.candidate.type,
             protocol: event.candidate.protocol,
             address: event.candidate.address,
-            port: event.candidate.port,
-            candidateType: event.candidate.candidateType
+            port: event.candidate.port
           });
           
           try {
@@ -126,25 +138,10 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
             console.log(`[ICE] Candidate sent to ${participantId}`);
           } catch (error) {
             console.error(`[ICE] Failed to send candidate:`, error);
-            handleError(error as Error, 'ICE candidate signaling');
           }
         }
       };
 
-      pc.onicegatheringstatechange = () => {
-        console.log(`[ICE] Gathering state with ${participantId}:`, pc.iceGatheringState);
-      };
-
-      pc.onconnectionstatechange = () => {
-        console.log(`[ICE] WebRTC connection state with ${participantId}:`, {
-          connectionState: pc.connectionState,
-          iceConnectionState: pc.iceConnectionState,
-          iceGatheringState: pc.iceGatheringState,
-          signalingState: pc.signalingState
-        });
-      };
-
-      // Handle incoming tracks with enhanced logging
       pc.ontrack = (event) => {
         console.log(`[ICE] Received remote track from ${participantId}:`, {
           kind: event.track.kind,
@@ -155,7 +152,6 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         onTrack?.(event, participantId);
       };
 
-      // Add local tracks with logging
       if (localStream.current) {
         console.log('[ICE] Adding local tracks to peer connection');
         localStream.current.getTracks().forEach(track => {
@@ -172,45 +168,11 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       }
 
       peerConnections.current.set(participantId, pc);
+      await processPendingIceCandidates(pc, participantId);
       return pc;
     } catch (error) {
       handleError(error as Error, 'Peer connection creation');
       return null;
-    }
-  };
-
-  const setupAudioAnalysis = (stream: MediaStream) => {
-    try {
-      if (!audioContext.current) {
-        audioContext.current = new AudioContext();
-      }
-
-      const analyser = audioContext.current.createAnalyser();
-      analyser.fftSize = 2048;
-      const source = audioContext.current.createMediaStreamSource(stream);
-      source.connect(analyser);
-
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-
-      const checkAudioLevel = () => {
-        if (!analyser) return;
-        
-        analyser.getByteFrequencyData(dataArray);
-        const average = dataArray.reduce((a, b) => a + b) / bufferLength;
-        
-        if (average > 30) {
-          console.log('Local user is speaking - Audio level:', average.toFixed(2));
-        }
-        
-        requestAnimationFrame(checkAudioLevel);
-      };
-
-      checkAudioLevel();
-      audioAnalyser.current = analyser;
-
-    } catch (error) {
-      console.error('Error setting up audio analysis:', error);
     }
   };
 
@@ -221,7 +183,15 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
     try {
       let pc = peerConnections.current.get(sender_id);
       
-      if (!pc) {
+      if (type === 'ice-candidate' && !pc) {
+        console.log('Storing ICE candidate for later processing');
+        const candidates = pendingIceCandidates.current.get(sender_id) || [];
+        candidates.push(payload.candidate);
+        pendingIceCandidates.current.set(sender_id, candidates);
+        return;
+      }
+
+      if (!pc && (type === 'offer' || type === 'answer')) {
         console.log('Creating new peer connection for sender:', sender_id);
         pc = await createPeerConnection(sender_id);
         if (!pc) return;
@@ -230,6 +200,11 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       switch (type) {
         case 'offer':
           console.log('Processing offer from:', sender_id);
+          if (pc.signalingState !== 'stable') {
+            console.warn('Skipping offer - connection not stable');
+            return;
+          }
+          
           await pc.setRemoteDescription(new RTCSessionDescription({
             type: payload.type,
             sdp: payload.sdp
@@ -241,17 +216,15 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) return;
 
-          const answerPayload: SerializablePayload = {
-            type: answer.type,
-            sdp: answer.sdp
-          };
-
           await supabase.from('voice_signaling').insert({
             channel_id: channelId,
             sender_id: user.id,
             receiver_id: sender_id,
             type: 'answer',
-            payload: answerPayload as Json
+            payload: {
+              type: answer.type,
+              sdp: answer.sdp
+            } as Json
           });
           break;
 
@@ -266,7 +239,12 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         case 'ice-candidate':
           console.log('Processing ICE candidate from:', sender_id);
           if (payload.candidate) {
-            await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+              console.log('Successfully added ICE candidate');
+            } catch (error) {
+              console.error('Error adding ICE candidate:', error);
+            }
           }
           break;
       }
@@ -293,7 +271,6 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       });
       
       localStream.current = stream;
-      setupAudioAnalysis(stream);
       setIsInitialized(true);
       setError(null);
       console.log('WebRTC initialized successfully');
@@ -346,9 +323,7 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         handleSignalingMessage(payload.new);
       })
       .subscribe(status => {
-        if (status === 'SUBSCRIBED') {
-          console.log('Voice signaling subscription established');
-        }
+        console.log('Voice signaling subscription status:', status);
       });
 
     return () => {
