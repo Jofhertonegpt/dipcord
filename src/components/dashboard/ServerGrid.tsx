@@ -68,12 +68,14 @@ export const ServerGrid = () => {
             </p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-2">
-              <div className="group relative flex flex-col p-6 rounded-lg glass-morphism hover:bg-white/10 transition-all duration-200">
-                <NotificationPopover />
-                <h3 className="text-xl font-semibold mb-2 text-foreground mt-4">Notifications</h3>
-                <p className="text-sm text-muted-foreground">
-                  Check your latest notifications and updates
-                </p>
+              <div className="group relative bg-white/50 hover:bg-white/60 transition-all duration-200 rounded-lg shadow-sm">
+                <div className="p-6">
+                  <NotificationPopover />
+                  <h3 className="text-xl font-semibold mb-2 text-foreground mt-4">Notifications</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Check your latest notifications and updates
+                  </p>
+                </div>
               </div>
               {servers?.map((server) => (
                 <button
