@@ -22,9 +22,12 @@ export const VoiceParticipant = ({
   stream
 }: VoiceParticipantProps) => {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const audioContext = useRef<AudioContext | null>(null);
+  const audioAnalyser = useRef<AnalyserNode | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [volume, setVolume] = useState(1);
+  const [isSpeakingState, setIsSpeakingState] = useState(false);
 
   useEffect(() => {
     if (!audioRef.current || !stream) {
@@ -35,6 +38,44 @@ export const VoiceParticipant = ({
     const audio = audioRef.current;
     let mounted = true;
 
+    const setupAudioAnalysis = () => {
+      try {
+        if (!audioContext.current) {
+          audioContext.current = new AudioContext();
+        }
+
+        const analyser = audioContext.current.createAnalyser();
+        analyser.fftSize = 2048;
+        const source = audioContext.current.createMediaStreamSource(stream);
+        source.connect(analyser);
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        const checkAudioLevel = () => {
+          if (!analyser || !mounted) return;
+          
+          analyser.getByteFrequencyData(dataArray);
+          const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+          
+          if (average > 30 && !isMuted) {
+            console.log(`${username} is speaking - Audio level:`, average.toFixed(2));
+            setIsSpeakingState(true);
+          } else {
+            setIsSpeakingState(false);
+          }
+          
+          requestAnimationFrame(checkAudioLevel);
+        };
+
+        checkAudioLevel();
+        audioAnalyser.current = analyser;
+
+      } catch (error) {
+        console.error('Error setting up audio analysis:', error);
+      }
+    };
+
     const setupAudioPlayback = async () => {
       try {
         console.log('Setting up audio playback for:', username);
@@ -42,41 +83,28 @@ export const VoiceParticipant = ({
         
         setAudioError(null);
         
-        // Configure audio element
         audio.muted = false;
         audio.volume = volume;
         audio.srcObject = stream;
-        
-        // Enable automatic playing
         audio.autoplay = true;
-        // Use the correct attribute name with setAttribute
         audio.setAttribute('playsinline', 'true');
         
-        // Play audio
         const playPromise = audio.play();
         if (playPromise !== undefined) {
           await playPromise;
           if (mounted) {
             console.log('Audio playing successfully for:', username);
             setIsPlaying(true);
+            setupAudioAnalysis();
           }
         }
       } catch (error: any) {
         if (mounted) {
           console.error('Audio playback failed for', username, ':', error);
-          console.error('Audio element state:', {
-            muted: audio.muted,
-            volume: audio.volume,
-            readyState: audio.readyState,
-            paused: audio.paused,
-            currentTime: audio.currentTime,
-            error: audio.error
-          });
           setAudioError(error.message);
           setIsPlaying(false);
           toast.error(`Audio playback error for ${username}: ${error.message}`);
           
-          // Attempt recovery after a short delay
           setTimeout(() => {
             if (mounted && audio) {
               console.log('Attempting audio recovery for:', username);
@@ -87,35 +115,8 @@ export const VoiceParticipant = ({
       }
     };
 
-    // Set up audio context for volume analysis
-    const audioContext = new AudioContext();
-    const source = audioContext.createMediaStreamSource(stream);
-    const analyser = audioContext.createAnalyser();
-    const processor = audioContext.createScriptProcessor(2048, 1, 1);
-    
-    source.connect(analyser);
-    analyser.connect(processor);
-    processor.connect(audioContext.destination);
-    
-    processor.onaudioprocess = () => {
-      const array = new Uint8Array(analyser.frequencyBinCount);
-      analyser.getByteFrequencyData(array);
-      const arraySum = array.reduce((a, value) => a + value, 0);
-      const average = arraySum / array.length;
-      
-      // Consider the participant speaking if the average volume is above a threshold
-      if (average > 30 && !isMuted) {
-        setIsPlaying(true);
-      } else {
-        setIsPlaying(false);
-      }
-    };
-
     // Set up event listeners
-    audio.addEventListener('canplay', () => {
-      console.log('Audio can play for:', username);
-      setupAudioPlayback();
-    });
+    audio.addEventListener('canplay', setupAudioPlayback);
     
     audio.addEventListener('error', (event: Event) => {
       if (mounted) {
@@ -139,13 +140,14 @@ export const VoiceParticipant = ({
         audio.pause();
         audio.srcObject = null;
       }
-      processor.disconnect();
-      analyser.disconnect();
-      source.disconnect();
-      audioContext.close();
-      setIsPlaying(false);
+      if (audioAnalyser.current) {
+        audioAnalyser.current.disconnect();
+      }
+      if (audioContext.current) {
+        audioContext.current.close();
+      }
     };
-  }, [stream, username, volume]);
+  }, [stream, username, volume, isMuted]);
 
   // Update deafened state
   useEffect(() => {
@@ -157,7 +159,7 @@ export const VoiceParticipant = ({
 
   return (
     <div className={`flex items-center gap-3 p-2 rounded-lg ${
-      isSpeaking && !audioError && isPlaying ? 'bg-green-500/10' : 'hover:bg-white/5'
+      isSpeakingState ? 'bg-green-500/10' : 'hover:bg-white/5'
     }`}>
       <div className="relative">
         <Avatar className="h-8 w-8 relative">
@@ -167,13 +169,13 @@ export const VoiceParticipant = ({
           </AvatarFallback>
         </Avatar>
         {/* Speaking indicator ring */}
-        {isSpeaking && !audioError && isPlaying && (
+        {isSpeakingState && !audioError && isPlaying && (
           <span className="absolute inset-0 animate-pulse">
             <span className="absolute inset-0 rounded-full border-2 border-green-500"></span>
           </span>
         )}
         {/* Status indicators */}
-        {isSpeaking && !audioError && isPlaying && (
+        {isSpeakingState && !audioError && isPlaying && (
           <span className="absolute -right-1 -bottom-1">
             <Volume2 className="h-4 w-4 text-green-500" />
           </span>
