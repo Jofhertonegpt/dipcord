@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { useIceServers } from './useIceServers';
+import { toast } from 'sonner';
 
 interface PeerConnectionsConfig {
   channelId: string;
@@ -24,6 +25,8 @@ export const usePeerConnections = ({
         throw new Error('ICE servers not available');
       }
 
+      console.log(`Creating peer connection for participant ${participantId}`);
+
       const pc = new RTCPeerConnection({
         iceServers,
         bundlePolicy: 'max-bundle',
@@ -32,21 +35,34 @@ export const usePeerConnections = ({
       });
 
       pc.onconnectionstatechange = () => {
-        console.log(`[ICE] Connection state with ${participantId}:`, pc.connectionState);
+        console.log(`Connection state with ${participantId}:`, pc.connectionState);
         onConnectionStateChange?.(pc.connectionState);
+        
+        if (pc.connectionState === 'failed') {
+          console.error(`Connection failed with ${participantId}`);
+          toast.error('Voice connection failed. Please try reconnecting.');
+          pc.close();
+          peerConnections.current.delete(participantId);
+        }
       };
 
       pc.oniceconnectionstatechange = () => {
-        console.log(`[ICE] ICE Connection state with ${participantId}:`, pc.iceConnectionState);
+        console.log(`ICE Connection state with ${participantId}:`, pc.iceConnectionState);
+        if (pc.iceConnectionState === 'failed') {
+          console.error(`ICE Connection failed with ${participantId}`);
+          toast.error('Voice connection failed. Please try reconnecting.');
+          pc.close();
+          peerConnections.current.delete(participantId);
+        }
       };
 
       pc.ontrack = (event) => {
-        console.log(`[ICE] Received remote track from ${participantId}`);
+        console.log(`Received track from ${participantId}:`, event.track.kind);
         onTrack?.(event, participantId);
       };
 
       if (localStream) {
-        console.log('[ICE] Adding local tracks to peer connection');
+        console.log('Adding local tracks to peer connection');
         localStream.getTracks().forEach(track => {
           if (localStream) {
             pc.addTrack(track, localStream);
@@ -56,7 +72,7 @@ export const usePeerConnections = ({
 
       peerConnections.current.set(participantId, pc);
 
-      // Process any pending ICE candidates for this peer
+      // Process any pending ICE candidates
       const candidates = pendingIceCandidates.current.get(participantId) || [];
       for (const candidate of candidates) {
         await pc.addIceCandidate(new RTCIceCandidate(candidate));
@@ -66,6 +82,7 @@ export const usePeerConnections = ({
       return pc;
     } catch (error) {
       console.error('Error creating peer connection:', error);
+      toast.error('Failed to establish voice connection');
       throw error;
     }
   };
