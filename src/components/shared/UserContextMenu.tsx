@@ -11,17 +11,8 @@ interface UserContextMenuProps {
 export const UserContextMenu = ({ userId, children }: UserContextMenuProps) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  const handleProfileClick = () => {
-    setIsProfileOpen(true);
-  };
-
   return (
-    <Dialog 
-      open={isProfileOpen} 
-      onOpenChange={(open) => {
-        setIsProfileOpen(open);
-      }}
-    >
+    <>
       <ContextMenu>
         <ContextMenuTrigger>
           {children}
@@ -29,16 +20,19 @@ export const UserContextMenu = ({ userId, children }: UserContextMenuProps) => {
         <ContextMenuContent className="bg-[#403E43] border-[#33C3F0]/20 text-white">
           <ContextMenuItem 
             className="hover:bg-[#33C3F0]/10 focus:bg-[#33C3F0]/10 cursor-pointer"
-            onClick={handleProfileClick}
+            onClick={() => setIsProfileOpen(true)}
           >
             View Profile
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
-      <DialogContent>
-        <DialogTitle>User Profile</DialogTitle>
-        <ProfileView userId={userId} />
-      </DialogContent>
-    </Dialog>
+      
+      <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+        <DialogContent>
+          <DialogTitle>User Profile</DialogTitle>
+          <ProfileView userId={userId} />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
