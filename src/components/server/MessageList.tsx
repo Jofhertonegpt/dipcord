@@ -67,9 +67,13 @@ export const MessageList = ({ channelId }: MessageListProps) => {
     };
   }, [channelId, queryClient]);
 
+  // Scroll to bottom when messages change
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      const scrollElement = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollElement) {
+        scrollElement.scrollTop = scrollElement.scrollHeight;
+      }
     }
   }, [messages]);
 
