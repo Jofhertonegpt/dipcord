@@ -52,6 +52,11 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Custom colors based on provided palette
+        darkGray: "#454545",
+        brightOrange: "#FF6000",
+        lightOrange: "#FFA559",
+        lightBeige: "#FFE6C7",
       },
       borderRadius: {
         lg: "var(--radius)",
