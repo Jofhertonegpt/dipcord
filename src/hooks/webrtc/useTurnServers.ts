@@ -29,8 +29,8 @@ export const useTurnServers = () => {
         ...defaultServers,
         ...data.map((server: TurnServer) => ({
           urls: server.url,
-          username: server.username,
-          credential: server.credential
+          username: server.username || undefined,
+          credential: server.credential || undefined
         }))
       ];
     }

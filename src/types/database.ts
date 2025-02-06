@@ -1,8 +1,8 @@
 export interface TurnServer {
   id: string;
   url: string;
-  username?: string;
-  credential?: string;
+  username?: string | null;
+  credential?: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -20,13 +20,14 @@ export interface VoipSession {
   updated_at: string;
 }
 
-export interface VoipSignal {
+export interface VoiceParticipant {
   id: string;
-  session_id: string;
-  sender_id: string;
-  receiver_id?: string;
-  type: string;
-  payload: any;
-  created_at: string;
-  expires_at: string;
+  user: {
+    id: string;
+    username: string;
+    avatar_url: string | null;
+  };
+  is_muted: boolean;
+  is_deafened: boolean;
+  connection_state: string;
 }

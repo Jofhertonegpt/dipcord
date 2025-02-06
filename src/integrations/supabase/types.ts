@@ -540,6 +540,36 @@ export type Database = {
           },
         ]
       }
+      turn_servers: {
+        Row: {
+          created_at: string | null
+          credential: string | null
+          id: string
+          is_active: boolean | null
+          updated_at: string | null
+          url: string
+          username: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          credential?: string | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+          url: string
+          username?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          credential?: string | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+          url?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
       voice_channel_participants: {
         Row: {
           channel_id: string | null
@@ -646,6 +676,57 @@ export type Database = {
           {
             foreignKeyName: "voice_signaling_sender_id_fkey"
             columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voip_sessions: {
+        Row: {
+          channel_id: string | null
+          connection_state: string | null
+          created_at: string | null
+          id: string
+          is_deafened: boolean | null
+          is_muted: boolean | null
+          last_heartbeat: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          channel_id?: string | null
+          connection_state?: string | null
+          created_at?: string | null
+          id?: string
+          is_deafened?: boolean | null
+          is_muted?: boolean | null
+          last_heartbeat?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          channel_id?: string | null
+          connection_state?: string | null
+          created_at?: string | null
+          id?: string
+          is_deafened?: boolean | null
+          is_muted?: boolean | null
+          last_heartbeat?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voip_sessions_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voip_sessions_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

@@ -22,10 +22,10 @@ export const useVoipSession = ({ channelId }: UseVoipSessionProps) => {
         .select('*')
         .eq('channel_id', channelId)
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-      return data as VoipSession;
+      return data as VoipSession | null;
     },
   });
 

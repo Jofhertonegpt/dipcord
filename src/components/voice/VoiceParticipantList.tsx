@@ -4,35 +4,25 @@ import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Mic, MicOff, HeadphoneOff } from "lucide-react";
 import { UserContextMenu } from "./UserContextMenu";
+import type { VoiceParticipant } from "@/types/database";
 
 interface VoiceParticipantListProps {
   channelId: string;
-}
-
-interface Participant {
-  id: string;
-  channel_id: string;
-  user_id: string;
-  is_muted: boolean;
-  is_deafened: boolean;
-  connection_state: string;
-  user: {
-    id: string;
-    username: string;
-    avatar_url: string | null;
-  };
 }
 
 export const VoiceParticipantList = ({ channelId }: VoiceParticipantListProps) => {
   const queryClient = useQueryClient();
 
   const { data: participants } = useQuery({
-    queryKey: ['voip-sessions', channelId],
+    queryKey: ['voice-participants', channelId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('voip_sessions')
         .select(`
-          *,
+          id,
+          is_muted,
+          is_deafened,
+          connection_state,
           user:profiles(
             id,
             username,
@@ -43,13 +33,13 @@ export const VoiceParticipantList = ({ channelId }: VoiceParticipantListProps) =
         .neq('connection_state', 'disconnected');
 
       if (error) throw error;
-      return data as Participant[];
+      return data as VoiceParticipant[];
     },
   });
 
   useEffect(() => {
     const channel = supabase
-      .channel('voip_sessions')
+      .channel(`voip_sessions:${channelId}`)
       .on(
         'postgres_changes',
         {
@@ -59,7 +49,7 @@ export const VoiceParticipantList = ({ channelId }: VoiceParticipantListProps) =
           filter: `channel_id=eq.${channelId}`
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['voip-sessions', channelId] });
+          queryClient.invalidateQueries({ queryKey: ['voice-participants', channelId] });
         }
       )
       .subscribe();
@@ -81,7 +71,7 @@ export const VoiceParticipantList = ({ channelId }: VoiceParticipantListProps) =
     <div className="space-y-2 p-4">
       {participants.map((participant) => (
         <UserContextMenu
-          key={participant.user.id}
+          key={participant.id}
           userId={participant.user.id}
           username={participant.user.username}
           isMuted={participant.is_muted}
