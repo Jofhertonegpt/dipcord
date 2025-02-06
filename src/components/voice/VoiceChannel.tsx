@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { VoiceParticipantList } from "./VoiceParticipantList";
 import { VoiceControls } from "./VoiceControls";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import SimplePeer from "simple-peer";
+import { useWebRTC } from "@/hooks/webrtc/useWebRTC";
 import { Loader2 } from "lucide-react";
 
 interface VoiceChannelProps {
@@ -14,10 +14,23 @@ interface VoiceChannelProps {
 export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [peers, setPeers] = useState<Map<string, SimplePeer.Instance>>(new Map());
-  const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
   const queryClient = useQueryClient();
+
+  const {
+    isInitialized,
+    error,
+    initializeWebRTC,
+    cleanup,
+  } = useWebRTC({
+    channelId,
+    onTrack: (event, participantId) => {
+      console.log(`Received track from ${participantId}:`, event.track.kind);
+      // Handle incoming audio track
+      const audio = new Audio();
+      audio.srcObject = event.streams[0];
+      audio.play().catch(console.error);
+    }
+  });
 
   // Check if user is already in this specific channel
   const { data: existingParticipant } = useQuery({
@@ -97,64 +110,17 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     },
   });
 
-  const cleanup = () => {
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
-      setLocalStream(null);
-    }
-    peers.forEach(peer => peer.destroy());
-    setPeers(new Map());
-  };
-
-  const initializeVoice = async () => {
+  const handleJoinChannel = async () => {
+    setIsConnecting(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setLocalStream(stream);
-      return stream;
+      await initializeWebRTC();
+      await joinChannel.mutateAsync();
     } catch (error) {
-      console.error('Error accessing microphone:', error);
-      toast.error("Could not access microphone");
-      throw error;
+      console.error('Failed to join voice channel:', error);
+    } finally {
+      setIsConnecting(false);
     }
   };
-
-  useEffect(() => {
-    if (isConnected && localStream) {
-      const channel = supabase.channel(`voice-${channelId}`)
-        .on('broadcast', { event: 'signal' }, async (payload) => {
-          const { senderId, signal } = payload.payload;
-          const { data: { user } } = await supabase.auth.getUser();
-          
-          if (user?.id === senderId) return;
-
-          let peer = peers.get(senderId);
-          
-          if (!peer) {
-            peer = new SimplePeer({
-              initiator: false,
-              stream: localStream,
-              trickle: false
-            });
-            
-            peer.on('stream', (remoteStream) => {
-              const audio = new Audio();
-              audio.srcObject = remoteStream;
-              audio.play().catch(console.error);
-              audioRefs.current.set(senderId, audio);
-            });
-
-            setPeers(new Map(peers.set(senderId, peer)));
-          }
-
-          peer.signal(signal);
-        })
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [isConnected, localStream, channelId]);
 
   useEffect(() => {
     return () => {
@@ -163,19 +129,6 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
       }
     };
   }, [isConnected]);
-
-  const handleJoinChannel = async () => {
-    setIsConnecting(true);
-    try {
-      const stream = await initializeVoice();
-      await joinChannel.mutateAsync();
-      setLocalStream(stream);
-    } catch (error) {
-      console.error('Failed to join voice channel:', error);
-    } finally {
-      setIsConnecting(false);
-    }
-  };
 
   return (
     <div className="flex flex-col h-full">
@@ -211,9 +164,7 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
               }
             }}
             onDeafenChange={(isDeafened) => {
-              audioRefs.current.forEach(audio => {
-                audio.muted = isDeafened;
-              });
+              // Handle deafen state
             }}
           />
           <div className="p-4 border-t border-white/10">
