@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
 
 interface Channel {
   id: string;
@@ -58,8 +59,23 @@ export const ChannelList = ({ serverId, channels, selectedChannel, onSelectChann
     },
   });
 
+  const container = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const item = {
+    hidden: { opacity: 0, x: -20 },
+    show: { opacity: 1, x: 0 }
+  };
+
   return (
-    <div className="w-64 h-full bg-muted glass-morphism">
+    <div className="w-72 h-full bg-muted/80 backdrop-blur-xl border-r border-border">
       <div className="flex items-center justify-between p-4 border-b border-border">
         <h2 className="text-lg font-bold">Channels</h2>
         <Dialog open={isCreatingChannel} onOpenChange={setIsCreatingChannel}>
@@ -108,47 +124,58 @@ export const ChannelList = ({ serverId, channels, selectedChannel, onSelectChann
         </Dialog>
       </div>
       <ScrollArea className="h-[calc(100vh-5rem)] px-2">
-        <div className="space-y-4 py-4">
+        <motion.div 
+          variants={container}
+          initial="hidden"
+          animate="show"
+          className="space-y-4 py-4"
+        >
           <div>
             <h3 className="text-sm font-semibold mb-2 px-2">Text Channels</h3>
-            {channels
-              ?.filter((channel) => channel.type === 'text')
-              .map((channel) => (
-                <button
-                  key={channel.id}
-                  onClick={() => onSelectChannel(channel.id)}
-                  className={`w-full p-2 flex items-center space-x-2 rounded-lg transition-colors ${
-                    selectedChannel === channel.id 
-                      ? 'bg-accent text-accent-foreground' 
-                      : 'hover:bg-accent/50'
-                  }`}
-                >
-                  <Hash className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{channel.name}</span>
-                </button>
-              ))}
+            <motion.div variants={container} className="space-y-0.5">
+              {channels
+                ?.filter((channel) => channel.type === 'text')
+                .map((channel) => (
+                  <motion.button
+                    key={channel.id}
+                    variants={item}
+                    onClick={() => onSelectChannel(channel.id)}
+                    className={`w-full p-2 flex items-center space-x-2 rounded-lg transition-all ${
+                      selectedChannel === channel.id 
+                        ? 'bg-accent text-accent-foreground' 
+                        : 'hover:bg-accent/50'
+                    }`}
+                  >
+                    <Hash className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{channel.name}</span>
+                  </motion.button>
+                ))}
+            </motion.div>
           </div>
-          <Separator />
+          <Separator className="bg-border/50" />
           <div>
             <h3 className="text-sm font-semibold mb-2 px-2">Voice Channels</h3>
-            {channels
-              ?.filter((channel) => channel.type === 'voice')
-              .map((channel) => (
-                <button
-                  key={channel.id}
-                  onClick={() => onSelectChannel(channel.id)}
-                  className={`w-full p-2 flex items-center space-x-2 rounded-lg transition-colors ${
-                    selectedChannel === channel.id 
-                      ? 'bg-accent text-accent-foreground' 
-                      : 'hover:bg-accent/50'
-                  }`}
-                >
-                  <Volume2 className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{channel.name}</span>
-                </button>
-              ))}
+            <motion.div variants={container} className="space-y-0.5">
+              {channels
+                ?.filter((channel) => channel.type === 'voice')
+                .map((channel) => (
+                  <motion.button
+                    key={channel.id}
+                    variants={item}
+                    onClick={() => onSelectChannel(channel.id)}
+                    className={`w-full p-2 flex items-center space-x-2 rounded-lg transition-all ${
+                      selectedChannel === channel.id 
+                        ? 'bg-accent text-accent-foreground' 
+                        : 'hover:bg-accent/50'
+                    }`}
+                  >
+                    <Volume2 className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{channel.name}</span>
+                  </motion.button>
+                ))}
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
       </ScrollArea>
     </div>
   );

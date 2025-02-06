@@ -7,6 +7,7 @@ import { MessageList } from "@/components/server/MessageList";
 import { MessageInput } from "@/components/server/MessageInput";
 import { VoiceChannel } from "@/components/voice/VoiceChannel";
 import { Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface Channel {
   id: string;
@@ -35,6 +36,7 @@ const ServerView = () => {
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const queryClient = useQueryClient();
+  const isMobile = window.innerWidth <= 768;
 
   const { data: server, isLoading: loadingServer } = useQuery({
     queryKey: ['server', serverId],
@@ -113,10 +115,13 @@ const ServerView = () => {
 
   const handleChannelSelect = (channelId: string) => {
     setSelectedChannel(channelId);
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
   };
 
   const handleMessageAreaClick = () => {
-    if (window.innerWidth <= 768) {
+    if (isMobile) {
       setSidebarOpen(false);
     }
   };
@@ -124,36 +129,67 @@ const ServerView = () => {
   const selectedChannelType = channels?.find(c => c.id === selectedChannel)?.type;
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-background">
-      {/* Sidebar */}
-      <div 
-        className={`fixed md:relative left-0 top-0 h-[calc(100vh-4rem)] z-30 transition-all duration-300 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        }`}
-      >
-        <ChannelList
-          serverId={serverId!}
-          channels={channels}
-          selectedChannel={selectedChannel}
-          onSelectChannel={handleChannelSelect}
-        />
-      </div>
+    <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-background/80 backdrop-blur-sm">
+      <AnimatePresence mode="wait">
+        {sidebarOpen && (
+          <motion.div
+            initial={{ x: -300, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -300, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="fixed md:relative left-0 top-0 h-[calc(100vh-4rem)] z-30 w-72"
+          >
+            <ChannelList
+              serverId={serverId!}
+              channels={channels}
+              selectedChannel={selectedChannel}
+              onSelectChannel={handleChannelSelect}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Main Content */}
-      <div 
-        className={`flex-1 flex flex-col h-full transition-all duration-300 ${
-          sidebarOpen ? 'md:ml-64' : 'ml-0'
+      <motion.div
+        layout
+        className={`flex-1 flex flex-col h-full transition-all duration-300 relative ${
+          sidebarOpen ? 'md:ml-72' : 'ml-0'
         }`}
         onClick={handleMessageAreaClick}
       >
-        {selectedChannel ? (
+        {!selectedChannel ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-center h-full text-muted-foreground"
+          >
+            <div className="text-center space-y-4">
+              <h3 className="text-2xl font-semibold">Welcome to {server?.name}</h3>
+              <p>Select a channel to start chatting</p>
+              {isMobile && !sidebarOpen && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSidebarOpen(true);
+                  }}
+                  className="px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
+                >
+                  Open Channels
+                </button>
+              )}
+            </div>
+          </motion.div>
+        ) : (
           <>
             {loadingMessages ? (
               <div className="flex-1 flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin" />
               </div>
             ) : (
-              <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex-1 flex flex-col h-full"
+              >
                 {selectedChannelType === 'voice' ? (
                   <VoiceChannel channelId={selectedChannel} />
                 ) : (
@@ -166,15 +202,22 @@ const ServerView = () => {
                     </div>
                   </>
                 )}
-              </>
+              </motion.div>
             )}
           </>
-        ) : (
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            Select a channel to start chatting
-          </div>
         )}
-      </div>
+
+        {/* Mobile sidebar trigger area */}
+        {isMobile && !sidebarOpen && (
+          <div
+            className="absolute left-0 top-0 w-4 h-full cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSidebarOpen(true);
+            }}
+          />
+        )}
+      </motion.div>
     </div>
   );
 };
