@@ -53,7 +53,8 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
   const { data: existingParticipant } = useQuery({
     queryKey: ['voice-participant', channelId],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const userResponse = await supabase.auth.getUser();
+      const user = userResponse.data.user;
       if (!user) return null;
 
       const { data, error } = await supabase
@@ -74,7 +75,8 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
 
   const joinChannel = useMutation({
     mutationFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const userResponse = await supabase.auth.getUser();
+      const user = userResponse.data.user;
       if (!user) throw new Error("Not authenticated");
 
       // First try to update existing record
@@ -113,8 +115,9 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
 
       // Create peer connections with existing participants
       if (participants) {
-        participants.forEach(participant => {
-          const { data: { user } } = supabase.auth.getUser();
+        participants.forEach(async participant => {
+          const userResponse = await supabase.auth.getUser();
+          const user = userResponse.data.user;
           if (user && participant.user_id !== user.id) {
             createPeer(participant.user_id, true);
           }

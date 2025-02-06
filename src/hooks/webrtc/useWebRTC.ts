@@ -15,6 +15,12 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
   const localStreamRef = useRef<MediaStream | null>(null);
   const peers = useRef<Map<string, SimplePeer.Instance>>(new Map());
 
+  // Move useSignaling hook before createPeer to avoid the declaration order issue
+  const { sendSignal } = useSignaling({
+    channelId,
+    onSignalingMessage: handleSignalingMessage
+  });
+
   const createPeer = useCallback((participantId: string, initiator: boolean = false) => {
     if (!localStreamRef.current) {
       console.error('Cannot create peer without local stream');
@@ -114,11 +120,6 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       toast.error(`Signaling error: ${error.message}`);
     }
   }, [createPeer]);
-
-  const { sendSignal } = useSignaling({
-    channelId,
-    onSignalingMessage: handleSignalingMessage
-  });
 
   const initializeWebRTC = async () => {
     try {
