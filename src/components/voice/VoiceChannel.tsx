@@ -1,11 +1,10 @@
-import { useEffect, useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { VoiceParticipantList } from "./VoiceParticipantList";
 import { VoiceControls } from "./VoiceControls";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useWebRTC } from "@/hooks/useWebRTC";
-import { VoiceParticipant } from "./VoiceParticipant";
+import SimplePeer from "simple-peer";
 import { Loader2 } from "lucide-react";
 
 interface VoiceChannelProps {
@@ -14,62 +13,11 @@ interface VoiceChannelProps {
 
 export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
   const [isConnected, setIsConnected] = useState(false);
-  const [participants, setParticipants] = useState(new Map());
   const [isConnecting, setIsConnecting] = useState(false);
-  const joinSoundRef = useRef<HTMLAudioElement>();
-  const leaveSoundRef = useRef<HTMLAudioElement>();
-  const heartbeatInterval = useRef<NodeJS.Timeout>();
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [peers, setPeers] = useState<Map<string, SimplePeer.Instance>>(new Map());
+  const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
   const queryClient = useQueryClient();
-
-  const { 
-    isInitialized, 
-    error: webRTCError, 
-    connectionState, 
-    initializeWebRTC, 
-    cleanup, 
-    localStream 
-  } = useWebRTC({
-    channelId,
-    onTrack: (event, participantId) => {
-      console.log(`Received track from participant ${participantId}`);
-      const [stream] = event.streams;
-      if (!stream) {
-        console.warn('No stream in track event');
-        return;
-      }
-      
-      setParticipants(prev => {
-        const newMap = new Map(prev);
-        newMap.set(participantId, {
-          stream,
-          isSpeaking: false
-        });
-        return newMap;
-      });
-    }
-  });
-
-  // Check if user is already in any voice channel
-  const { data: activeVoiceParticipation } = useQuery({
-    queryKey: ['voice-participant-active'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-
-      const { data, error } = await supabase
-        .from('voice_channel_participants')
-        .select('channel_id, connection_state')
-        .eq('user_id', user.id)
-        .neq('connection_state', 'disconnected')
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error checking active voice participation:', error);
-        return null;
-      }
-      return data;
-    },
-  });
 
   // Check if user is already in this specific channel
   const { data: existingParticipant } = useQuery({
@@ -94,102 +42,17 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     enabled: !!channelId,
   });
 
-  // Add heartbeat mutation
-  const updateHeartbeat = useMutation({
-    mutationFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      const { error } = await supabase
-        .from('voice_channel_participants')
-        .update({
-          last_heartbeat: new Date().toISOString(),
-          connection_state: connectionState
-        })
-        .eq('channel_id', channelId)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-    },
-  });
-
-  // Start heartbeat when connected
-  useEffect(() => {
-    if (isConnected) {
-      updateHeartbeat.mutate();
-      
-      heartbeatInterval.current = setInterval(() => {
-        updateHeartbeat.mutate();
-      }, 15000);
-    }
-
-    return () => {
-      if (heartbeatInterval.current) {
-        clearInterval(heartbeatInterval.current);
-      }
-    };
-  }, [isConnected, connectionState]);
-
-  useEffect(() => {
-    joinSoundRef.current = new Audio("/sounds/join.mp3");
-    joinSoundRef.current.volume = 0.5;
-    
-    leaveSoundRef.current = new Audio("/sounds/leave.mp3");
-    leaveSoundRef.current.volume = 0.5;
-
-    return () => {
-      joinSoundRef.current = undefined;
-      leaveSoundRef.current = undefined;
-    };
-  }, []);
-
   const joinChannel = useMutation({
     mutationFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      if (activeVoiceParticipation && activeVoiceParticipation.channel_id !== channelId) {
-        throw new Error("You are already in another voice channel");
-      }
-
-      const { data: existingParticipant, error: checkError } = await supabase
-        .from('voice_channel_participants')
-        .select('*')
-        .eq('channel_id', channelId)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (checkError) throw checkError;
-
-      if (existingParticipant && existingParticipant.connection_state !== 'disconnected') {
-        return existingParticipant;
-      }
-
-      if (existingParticipant) {
-        const { data, error } = await supabase
-          .from('voice_channel_participants')
-          .update({
-            connection_state: 'connecting',
-            is_muted: false,
-            is_deafened: false,
-            last_heartbeat: new Date().toISOString()
-          })
-          .eq('id', existingParticipant.id)
-          .select()
-          .single();
-
-        if (error) throw error;
-        return data;
-      }
-
       const { data, error } = await supabase
         .from('voice_channel_participants')
-        .insert({
+        .upsert({
           channel_id: channelId,
           user_id: user.id,
-          is_muted: false,
-          is_deafened: false,
-          connection_state: 'connecting',
+          connection_state: 'connected',
           last_heartbeat: new Date().toISOString()
         })
         .select()
@@ -200,12 +63,8 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voice-participants', channelId] });
-      queryClient.invalidateQueries({ queryKey: ['voice-participant', channelId] });
       setIsConnected(true);
       toast.success("Joined voice channel");
-      if (joinSoundRef.current) {
-        joinSoundRef.current.play().catch(console.error);
-      }
     },
     onError: (error: Error) => {
       toast.error(`Failed to join channel: ${error.message}`);
@@ -221,11 +80,7 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
 
       const { error } = await supabase
         .from('voice_channel_participants')
-        .update({
-          connection_state: 'disconnected',
-          is_muted: false,
-          is_deafened: false
-        })
+        .update({ connection_state: 'disconnected' })
         .eq('channel_id', channelId)
         .eq('user_id', user.id);
 
@@ -233,80 +88,104 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voice-participants', channelId] });
-      queryClient.invalidateQueries({ queryKey: ['voice-participant', channelId] });
       setIsConnected(false);
       cleanup();
       toast.success("Left voice channel");
-      if (leaveSoundRef.current) {
-        leaveSoundRef.current.play().catch(console.error);
-      }
     },
     onError: (error: Error) => {
       toast.error(`Failed to leave channel: ${error.message}`);
     },
   });
 
-  useEffect(() => {
-    const handleUnload = async () => {
-      if (isConnected) {
-        await leaveChannel.mutateAsync();
-      }
-    };
+  const cleanup = () => {
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+      setLocalStream(null);
+    }
+    peers.forEach(peer => peer.destroy());
+    setPeers(new Map());
+  };
 
-    window.addEventListener('beforeunload', handleUnload);
+  const initializeVoice = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setLocalStream(stream);
+      return stream;
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      toast.error("Could not access microphone");
+      throw error;
+    }
+  };
+
+  useEffect(() => {
+    if (isConnected && localStream) {
+      const channel = supabase.channel(`voice-${channelId}`)
+        .on('broadcast', { event: 'signal' }, async (payload) => {
+          const { senderId, signal } = payload.payload;
+          const { data: { user } } = await supabase.auth.getUser();
+          
+          if (user?.id === senderId) return;
+
+          let peer = peers.get(senderId);
+          
+          if (!peer) {
+            peer = new SimplePeer({
+              initiator: false,
+              stream: localStream,
+              trickle: false
+            });
+            
+            peer.on('stream', (remoteStream) => {
+              const audio = new Audio();
+              audio.srcObject = remoteStream;
+              audio.play().catch(console.error);
+              audioRefs.current.set(senderId, audio);
+            });
+
+            setPeers(new Map(peers.set(senderId, peer)));
+          }
+
+          peer.signal(signal);
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [isConnected, localStream, channelId]);
+
+  useEffect(() => {
     return () => {
-      window.removeEventListener('beforeunload', handleUnload);
       if (isConnected) {
         leaveChannel.mutate();
       }
     };
   }, [isConnected]);
 
-  if (webRTCError) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-4 text-center space-y-4">
-        <p className="text-red-500">Error: {webRTCError}</p>
-        <button
-          onClick={() => leaveChannel.mutate()}
-          className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
-        >
-          Leave Channel
-        </button>
-      </div>
-    );
-  }
+  const handleJoinChannel = async () => {
+    setIsConnecting(true);
+    try {
+      const stream = await initializeVoice();
+      await joinChannel.mutateAsync();
+      setLocalStream(stream);
+    } catch (error) {
+      console.error('Failed to join voice channel:', error);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto">
         <VoiceParticipantList channelId={channelId} />
-        {Array.from(participants.entries()).map(([participantId, { stream }]) => (
-          <VoiceParticipant
-            key={participantId}
-            username={participantId}
-            stream={stream}
-          />
-        ))}
       </div>
       {!isConnected ? (
         <div className="p-4 border-t border-white/10">
           <button
-            onClick={async () => {
-              if (activeVoiceParticipation && activeVoiceParticipation.channel_id !== channelId) {
-                toast.error("You are already in another voice channel");
-                return;
-              }
-              setIsConnecting(true);
-              try {
-                await initializeWebRTC();
-                await joinChannel.mutateAsync();
-              } catch (error: any) {
-                console.error('Failed to join voice channel:', error);
-                toast.error(error.message);
-              } finally {
-                setIsConnecting(false);
-              }
-            }}
+            onClick={handleJoinChannel}
             disabled={isConnecting}
             className="w-full px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -332,12 +211,8 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
               }
             }}
             onDeafenChange={(isDeafened) => {
-              participants.forEach(({ stream }) => {
-                if (stream) {
-                  stream.getAudioTracks().forEach(track => {
-                    track.enabled = !isDeafened;
-                  });
-                }
+              audioRefs.current.forEach(audio => {
+                audio.muted = isDeafened;
               });
             }}
           />
