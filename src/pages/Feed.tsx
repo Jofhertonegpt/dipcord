@@ -12,6 +12,7 @@ import { Heart, MessageSquare, Share2, ImagePlus } from "lucide-react";
 import { CommentSection } from "@/components/post/CommentSection";
 import { useFileUpload } from "@/components/message/useFileUpload";
 import { FilePreview } from "@/components/message/FilePreview";
+import { MediaEmbed } from "@/components/post/MediaEmbed";
 
 const Feed = () => {
   const navigate = useNavigate();
@@ -39,7 +40,13 @@ const Feed = () => {
     checkAuth();
   }, [navigate]);
 
-  // Fetch posts
+  // Extract URLs from content
+  const extractUrls = (content: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    return content.match(urlRegex) || [];
+  };
+
+  // Fetch posts with embedded media
   const { data: posts, isLoading } = useQuery({
     queryKey: ['posts'],
     queryFn: async () => {
@@ -73,15 +80,23 @@ const Feed = () => {
     },
   });
 
-  // Create post mutation
+  // Create post mutation with embedded media detection
   const createPostMutation = useMutation({
     mutationFn: async ({ content, mediaUrls }: { content: string; mediaUrls: string[] }) => {
+      const urls = extractUrls(content);
+      const embeddedMedia = urls.map(url => ({
+        url,
+        type: url.includes('youtube.com') || url.includes('youtu.be') ? 'youtube' :
+              url.includes('medal.tv') ? 'medal' : 'link'
+      }));
+
       const { error } = await supabase
         .from('posts')
         .insert([{ 
           content, 
           user_id: currentUser.id,
-          media_urls: mediaUrls.length > 0 ? mediaUrls : null
+          media_urls: mediaUrls.length > 0 ? mediaUrls : null,
+          embedded_media: embeddedMedia.length > 0 ? embeddedMedia : null
         }]);
       if (error) throw error;
     },
@@ -97,7 +112,6 @@ const Feed = () => {
     },
   });
 
-  // Like/Unlike mutations
   const likePostMutation = useMutation({
     mutationFn: async (postId: string) => {
       const { error } = await supabase
@@ -132,7 +146,6 @@ const Feed = () => {
     },
   });
 
-  // Handle post submission
   const handleSubmitPost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPost.trim() && selectedFiles.length === 0) return;
@@ -150,7 +163,6 @@ const Feed = () => {
     }
   };
 
-  // Set up realtime subscription
   useEffect(() => {
     const channel = supabase
       .channel('public:posts')
@@ -224,7 +236,7 @@ const Feed = () => {
       {/* Posts Feed */}
       <div className="space-y-4">
         {posts?.map((post: any) => (
-          <Card key={post.id} className="p-4 bg-card">
+          <Card key={post.id} className="p-4 bg-card animate-fade-in">
             <div className="flex items-start gap-3">
               <Avatar className="w-10 h-10">
                 <AvatarImage src={post.user?.avatar_url} />
@@ -239,7 +251,7 @@ const Feed = () => {
                     {format(new Date(post.created_at), "MMM d, yyyy")}
                   </span>
                 </div>
-                <p className="mt-2 text-foreground">{post.content}</p>
+                <p className="mt-2 text-foreground whitespace-pre-wrap">{post.content}</p>
                 
                 {/* Media Display */}
                 {post.media_urls && post.media_urls.length > 0 && (
@@ -252,6 +264,15 @@ const Feed = () => {
                         className="rounded-lg w-full h-auto object-cover cursor-pointer hover:opacity-90 transition-opacity"
                         onClick={() => window.open(url, '_blank')}
                       />
+                    ))}
+                  </div>
+                )}
+
+                {/* Embedded Media */}
+                {post.embedded_media && post.embedded_media.length > 0 && (
+                  <div className="mt-4 space-y-4">
+                    {post.embedded_media.map((embed: any, index: number) => (
+                      <MediaEmbed key={index} url={embed.url} />
                     ))}
                   </div>
                 )}

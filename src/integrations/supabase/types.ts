@@ -145,6 +145,7 @@ export type Database = {
         Row: {
           content: string
           created_at: string
+          embedded_media: Json[] | null
           id: string
           is_edited: boolean | null
           media_urls: string[] | null
@@ -155,6 +156,7 @@ export type Database = {
         Insert: {
           content: string
           created_at?: string
+          embedded_media?: Json[] | null
           id?: string
           is_edited?: boolean | null
           media_urls?: string[] | null
@@ -165,6 +167,7 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string
+          embedded_media?: Json[] | null
           id?: string
           is_edited?: boolean | null
           media_urls?: string[] | null
@@ -296,6 +299,7 @@ export type Database = {
           channel_id: string | null
           content: string
           created_at: string
+          embedded_media: Json[] | null
           id: string
           is_edited: boolean | null
           media_urls: string[] | null
@@ -306,6 +310,7 @@ export type Database = {
           channel_id?: string | null
           content: string
           created_at?: string
+          embedded_media?: Json[] | null
           id?: string
           is_edited?: boolean | null
           media_urls?: string[] | null
@@ -316,6 +321,7 @@ export type Database = {
           channel_id?: string | null
           content?: string
           created_at?: string
+          embedded_media?: Json[] | null
           id?: string
           is_edited?: boolean | null
           media_urls?: string[] | null
@@ -385,6 +391,7 @@ export type Database = {
           comments_count: number | null
           content: string
           created_at: string
+          embedded_media: Json[] | null
           id: string
           is_edited: boolean | null
           likes_count: number | null
@@ -396,6 +403,7 @@ export type Database = {
           comments_count?: number | null
           content: string
           created_at?: string
+          embedded_media?: Json[] | null
           id?: string
           is_edited?: boolean | null
           likes_count?: number | null
@@ -407,6 +415,7 @@ export type Database = {
           comments_count?: number | null
           content?: string
           created_at?: string
+          embedded_media?: Json[] | null
           id?: string
           is_edited?: boolean | null
           likes_count?: number | null
