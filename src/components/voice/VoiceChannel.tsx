@@ -78,6 +78,36 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     enabled: !!channelId,
   });
 
+  // Handle page unload
+  useEffect(() => {
+    const handleUnload = () => {
+      if (isConnected) {
+        // Synchronous cleanup to ensure it runs before page unload
+        const { data: { user } } = supabase.auth.getUser();
+        if (user) {
+          supabase
+            .from('voice_channel_participants')
+            .update({
+              connection_state: 'disconnected',
+              is_muted: false,
+              is_deafened: false
+            })
+            .eq('channel_id', channelId)
+            .eq('user_id', user.id);
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+      // Cleanup when component unmounts
+      if (isConnected) {
+        leaveChannel.mutate();
+      }
+    };
+  }, [isConnected, channelId]);
+
   useEffect(() => {
     // Initialize sounds
     joinSoundRef.current = new Audio("/sounds/join.mp3");
