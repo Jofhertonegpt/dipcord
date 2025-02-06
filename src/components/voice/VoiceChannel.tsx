@@ -18,6 +18,7 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const joinSoundRef = useRef<HTMLAudioElement>();
   const leaveSoundRef = useRef<HTMLAudioElement>();
+  const heartbeatInterval = useRef<NodeJS.Timeout>();
   const queryClient = useQueryClient();
 
   const { isInitialized, error, connectionState, initializeWebRTC, cleanup, localStream } = useWebRTC({
@@ -77,6 +78,47 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     },
     enabled: !!channelId,
   });
+
+  // Add heartbeat mutation
+  const updateHeartbeat = useMutation({
+    mutationFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from('voice_channel_participants')
+        .update({
+          last_heartbeat: new Date().toISOString()
+        })
+        .eq('channel_id', channelId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+    },
+    onError: (error: Error) => {
+      console.error('Failed to update heartbeat:', error);
+    }
+  });
+
+  // Start heartbeat when connected
+  useEffect(() => {
+    if (isConnected) {
+      // Send initial heartbeat
+      updateHeartbeat.mutate();
+      
+      // Set up interval for regular heartbeats
+      heartbeatInterval.current = setInterval(() => {
+        updateHeartbeat.mutate();
+      }, 15000); // Send heartbeat every 15 seconds
+    }
+
+    return () => {
+      if (heartbeatInterval.current) {
+        clearInterval(heartbeatInterval.current);
+        heartbeatInterval.current = undefined;
+      }
+    };
+  }, [isConnected]);
 
   // Handle page unload
   useEffect(() => {
