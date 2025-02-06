@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAudioAnalysis } from './useAudioAnalysis';
 import { usePeerConnections } from './usePeerConnections';
 import { useSignaling } from './useSignaling';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface WebRTCConfig {
   channelId: string;
@@ -13,6 +14,41 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const localStream = useRef<MediaStream | null>(null);
+  const heartbeatInterval = useRef<number>();
+
+  const updateConnectionState = async (state: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('voice_channel_participants')
+        .update({
+          connection_state: state,
+          last_heartbeat: new Date().toISOString()
+        })
+        .eq('channel_id', channelId)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error updating connection state:', error);
+      }
+    } catch (error) {
+      console.error('Error in updateConnectionState:', error);
+    }
+  };
+
+  const startHeartbeat = () => {
+    heartbeatInterval.current = window.setInterval(async () => {
+      await updateConnectionState('connected');
+    }, 15000) as unknown as number;
+  };
+
+  const stopHeartbeat = () => {
+    if (heartbeatInterval.current) {
+      clearInterval(heartbeatInterval.current);
+    }
+  };
 
   const { 
     peerConnections, 
@@ -27,6 +63,7 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
     onError: (error) => {
       console.error('Peer connection error:', error);
       toast.error(`Connection error: ${error.message}`);
+      updateConnectionState('error');
     }
   });
 
@@ -171,6 +208,8 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
           readyState: track.readyState
         })));
 
+        await updateConnectionState('connected');
+        startHeartbeat();
         setIsInitialized(true);
         setError(null);
         console.log('WebRTC initialized successfully');
@@ -187,12 +226,15 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       console.error('WebRTC initialization error:', error);
       setError(error.message);
       toast.error(`Failed to initialize voice: ${error.message}`);
+      await updateConnectionState('error');
       throw error;
     }
   };
 
-  const cleanup = () => {
+  const cleanup = async () => {
     console.log('Cleaning up WebRTC resources');
+    
+    stopHeartbeat();
     
     if (localStream.current) {
       localStream.current.getTracks().forEach(track => {
@@ -207,15 +249,21 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       pc.close();
     });
     
+    await updateConnectionState('disconnected');
     setIsInitialized(false);
     setError(null);
   };
+
+  useEffect(() => {
+    return () => {
+      cleanup();
+    };
+  }, []);
 
   return {
     isInitialized,
     error,
     connectionState,
-    signalingError,
     initializeWebRTC,
     cleanup,
     localStream: localStream.current

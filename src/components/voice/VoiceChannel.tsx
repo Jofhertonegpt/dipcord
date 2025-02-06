@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useWebRTC } from "@/hooks/useWebRTC";
 import { VoiceParticipant } from "./VoiceParticipant";
+import { Loader2 } from "lucide-react";
 
 interface VoiceChannelProps {
   channelId: string;
@@ -14,11 +15,12 @@ interface VoiceChannelProps {
 export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
   const [isConnected, setIsConnected] = useState(false);
   const [participants, setParticipants] = useState(new Map());
+  const [isConnecting, setIsConnecting] = useState(false);
   const joinSoundRef = useRef<HTMLAudioElement>();
   const leaveSoundRef = useRef<HTMLAudioElement>();
   const queryClient = useQueryClient();
 
-  const { isInitialized, initializeWebRTC, cleanup, localStream } = useWebRTC({
+  const { isInitialized, error, connectionState, initializeWebRTC, cleanup, localStream } = useWebRTC({
     channelId,
     onTrack: (event, participantId) => {
       const [stream] = event.streams;
@@ -40,8 +42,9 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
 
       const { data, error } = await supabase
         .from('voice_channel_participants')
-        .select('channel_id')
+        .select('channel_id, connection_state')
         .eq('user_id', user.id)
+        .neq('connection_state', 'disconnected')
         .maybeSingle();
 
       if (error) {
@@ -61,7 +64,7 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
 
       const { data, error } = await supabase
         .from('voice_channel_participants')
-        .select('*')
+        .select('*, profiles(username, avatar_url)')
         .eq('channel_id', channelId)
         .eq('user_id', user.id)
         .maybeSingle();
@@ -98,18 +101,19 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
         throw new Error("You are already in another voice channel");
       }
 
-      if (existingParticipant) {
+      if (existingParticipant?.connection_state !== 'disconnected') {
         return existingParticipant;
       }
 
       const { data, error } = await supabase
         .from('voice_channel_participants')
-        .insert([{
+        .upsert({
           channel_id: channelId,
           user_id: user.id,
           is_muted: false,
           is_deafened: false,
-        }])
+          connection_state: 'connecting'
+        })
         .select()
         .single();
 
@@ -126,6 +130,7 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     },
     onError: (error: Error) => {
       toast.error(`Failed to join channel: ${error.message}`);
+      setIsConnecting(false);
     },
   });
 
@@ -136,7 +141,11 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
 
       const { error } = await supabase
         .from('voice_channel_participants')
-        .delete()
+        .update({
+          connection_state: 'disconnected',
+          is_muted: false,
+          is_deafened: false
+        })
         .eq('channel_id', channelId)
         .eq('user_id', user.id);
 
@@ -203,6 +212,20 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     };
   }, [channelId, isConnected]);
 
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-4 text-center space-y-4">
+        <p className="text-red-500">Error: {error}</p>
+        <button
+          onClick={() => leaveChannel.mutate()}
+          className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+        >
+          Leave Channel
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto">
@@ -223,13 +246,28 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
                 toast.error("You are already in another voice channel");
                 return;
               }
-              await initializeWebRTC();
-              joinChannel.mutate();
-              setIsConnected(true);
+              setIsConnecting(true);
+              try {
+                await initializeWebRTC();
+                await joinChannel.mutateAsync();
+                setIsConnected(true);
+              } catch (error) {
+                console.error('Failed to join voice channel:', error);
+              } finally {
+                setIsConnecting(false);
+              }
             }}
-            className="w-full px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+            disabled={isConnecting}
+            className="w-full px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Join Voice
+            {isConnecting ? (
+              <div className="flex items-center justify-center space-x-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Connecting...</span>
+              </div>
+            ) : (
+              "Join Voice"
+            )}
           </button>
         </div>
       ) : (

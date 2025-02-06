@@ -501,26 +501,38 @@ export type Database = {
       voice_channel_participants: {
         Row: {
           channel_id: string | null
+          connection_state: string | null
+          ice_connection_state: string | null
           id: string
           is_deafened: boolean | null
           is_muted: boolean | null
           joined_at: string
+          last_heartbeat: string | null
+          signaling_state: string | null
           user_id: string | null
         }
         Insert: {
           channel_id?: string | null
+          connection_state?: string | null
+          ice_connection_state?: string | null
           id?: string
           is_deafened?: boolean | null
           is_muted?: boolean | null
           joined_at?: string
+          last_heartbeat?: string | null
+          signaling_state?: string | null
           user_id?: string | null
         }
         Update: {
           channel_id?: string | null
+          connection_state?: string | null
+          ice_connection_state?: string | null
           id?: string
           is_deafened?: boolean | null
           is_muted?: boolean | null
           joined_at?: string
+          last_heartbeat?: string | null
+          signaling_state?: string | null
           user_id?: string | null
         }
         Relationships: [
