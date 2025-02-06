@@ -1,3 +1,7 @@
+/**
+ * Custom hook for managing WebRTC signaling using Supabase's real-time features.
+ * Handles the exchange of connection information between peers in a voice channel.
+ */
 import { useEffect, useRef } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Json } from '@/integrations/supabase/types';
@@ -9,10 +13,17 @@ interface SignalingConfig {
 }
 
 export const useSignaling = ({ channelId, onSignalingMessage }: SignalingConfig) => {
+  // Track signaling errors without triggering re-renders
   const signalingError = useRef<string | null>(null);
 
   useEffect(() => {
     console.log('Setting up voice signaling subscription');
+    
+    /**
+     * Subscribe to Supabase real-time changes for voice signaling.
+     * Listens for new signaling messages in the voice_signaling table
+     * and forwards them to the message handler.
+     */
     const channel = supabase
       .channel(`voice-${channelId}`)
       .on('postgres_changes', {
@@ -38,12 +49,21 @@ export const useSignaling = ({ channelId, onSignalingMessage }: SignalingConfig)
         }
       });
 
+    // Cleanup subscription on unmount
     return () => {
       console.log('Cleaning up voice signaling subscription');
       supabase.removeChannel(channel);
     };
   }, [channelId, onSignalingMessage]);
 
+  /**
+   * Sends a signaling message to a specific peer.
+   * Used for exchanging WebRTC connection information (offers, answers, ICE candidates).
+   * 
+   * @param receiverId - ID of the peer to send the message to
+   * @param type - Type of signaling message (offer, answer, ice-candidate)
+   * @param payload - The actual signaling data to send
+   */
   const sendSignal = async (receiverId: string, type: string, payload: any) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
