@@ -6,8 +6,9 @@ import { ChannelList } from "@/components/server/ChannelList";
 import { MessageList } from "@/components/server/MessageList";
 import { MessageInput } from "@/components/server/MessageInput";
 import { VoiceChannel } from "@/components/voice/VoiceChannel";
-import { Loader2 } from "lucide-react";
+import { Loader2, Menu } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/button";
 
 interface Channel {
   id: string;
@@ -164,15 +165,17 @@ const ServerView = () => {
               <h3 className="text-2xl font-semibold">Welcome to {server?.name}</h3>
               <p>Select a channel to start chatting</p>
               {isMobile && !sidebarOpen && (
-                <button
+                <Button
                   onClick={(e) => {
                     e.stopPropagation();
                     setSidebarOpen(true);
                   }}
-                  className="px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
+                  className="flex items-center gap-2"
+                  variant="outline"
                 >
+                  <Menu className="h-4 w-4" />
                   Open Channels
-                </button>
+                </Button>
               )}
             </div>
           </motion.div>
@@ -186,8 +189,21 @@ const ServerView = () => {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex-1 flex flex-col h-full"
+                className="flex-1 flex flex-col h-full relative"
               >
+                {isMobile && !sidebarOpen && (
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSidebarOpen(true);
+                    }}
+                    className="absolute top-2 left-2 z-20"
+                    size="icon"
+                    variant="outline"
+                  >
+                    <Menu className="h-4 w-4" />
+                  </Button>
+                )}
                 {selectedChannelType === 'voice' ? (
                   <VoiceChannel channelId={selectedChannel} />
                 ) : (
@@ -203,17 +219,6 @@ const ServerView = () => {
               </motion.div>
             )}
           </>
-        )}
-
-        {/* Mobile sidebar trigger area */}
-        {isMobile && !sidebarOpen && (
-          <div
-            className="absolute left-0 top-0 w-4 h-full cursor-pointer"
-            onClick={(e) => {
-              e.stopPropagation();
-              setSidebarOpen(true);
-            }}
-          />
         )}
       </motion.div>
     </div>
