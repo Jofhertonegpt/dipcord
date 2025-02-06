@@ -83,7 +83,7 @@ const ServerView = () => {
       if (!selectedChannel) return [];
       const { data, error } = await supabase
         .from('messages')
-        .select('*, sender:profiles(id, username, avatar_url)')
+        .select('*, sender:profiles(id, username, avatar_url, is_online)')
         .eq('channel_id', selectedChannel)
         .order('created_at', { ascending: true });
       
