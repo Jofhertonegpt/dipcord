@@ -151,9 +151,7 @@ const ServerView = () => {
 
       <motion.div
         layout
-        className={`flex-1 flex flex-col h-full transition-all duration-300 relative ${
-          sidebarOpen ? 'md:ml-72' : 'ml-0'
-        }`}
+        className="flex-1 flex flex-col h-full relative"
         onClick={handleMessageAreaClick}
       >
         {!selectedChannel ? (

@@ -20,10 +20,10 @@ interface MessageItemProps {
 
 export const MessageItem = ({ id, content, created_at, sender, media_urls }: MessageItemProps) => {
   return (
-    <div className="flex items-start gap-3 group hover:bg-white/5 px-3 py-2 rounded-lg transition-colors">
+    <div className="flex items-start group hover:bg-white/5 px-4 py-2 transition-colors">
       <Dialog>
         <DialogTrigger asChild>
-          <Avatar className="cursor-pointer w-9 h-9">
+          <Avatar className="cursor-pointer w-10 h-10 shrink-0">
             <AvatarImage src={sender?.avatar_url ?? undefined} />
             <AvatarFallback>
               {sender?.username?.substring(0, 2).toUpperCase() ?? "?"}
@@ -35,8 +35,8 @@ export const MessageItem = ({ id, content, created_at, sender, media_urls }: Mes
           {sender && <ProfileView userId={sender.id} />}
         </DialogContent>
       </Dialog>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5">
+      <div className="flex-1 min-w-0 ml-4">
+        <div className="flex items-center gap-2 mb-1">
           <span className="font-semibold text-white hover:underline cursor-pointer">
             {sender?.username ?? "Unknown User"}
           </span>
