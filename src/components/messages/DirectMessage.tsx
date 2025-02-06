@@ -1,36 +1,34 @@
 import { format } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Lock } from "lucide-react";
-import { MediaPreview } from "./MediaPreview";
 import { UserContextMenu } from "@/components/shared/UserContextMenu";
 import { MessageStatus } from "@/components/shared/MessageStatus";
+import { MediaPreview } from "@/components/server/message/MediaPreview";
+import { Badge } from "@/components/ui/badge";
+import { Lock } from "lucide-react";
 
-interface MessageSender {
-  id: string;
-  username: string;
-  avatar_url: string | null;
-  is_online?: boolean;
-}
-
-interface MessageItemProps {
+interface DirectMessageProps {
   id: string;
   content: string;
   created_at: string;
-  sender: MessageSender | null;
+  sender: {
+    id: string;
+    username: string;
+    avatar_url: string | null;
+    is_online?: boolean;
+  } | null;
   media_urls: string[] | null;
   isRead?: boolean;
   isDelivered?: boolean;
 }
 
-export const MessageItem = ({ 
+export const DirectMessage = ({ 
   content, 
   created_at, 
   sender, 
   media_urls,
   isRead = false,
   isDelivered = true
-}: MessageItemProps) => {
+}: DirectMessageProps) => {
   return (
     <div className="flex items-start hover:bg-black/30 px-4 py-2 transition-colors group">
       {sender && (
