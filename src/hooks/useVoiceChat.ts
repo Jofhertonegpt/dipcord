@@ -16,7 +16,6 @@ export const useVoiceChat = ({ channelId, onTrack }: VoiceChatConfig) => {
   const localStreamRef = useRef<MediaStream | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
 
-  // Fetch ICE servers configuration
   const { data: iceServers } = useQuery({
     queryKey: ['ice-servers'],
     queryFn: async () => {
@@ -38,7 +37,6 @@ export const useVoiceChat = ({ channelId, onTrack }: VoiceChatConfig) => {
     }
   });
 
-  // Handle signaling messages
   useEffect(() => {
     if (!channelId) return;
 

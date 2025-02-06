@@ -4,11 +4,11 @@ import { useVoipSignaling } from './useVoipSignaling';
 import { toast } from 'sonner';
 
 interface WebRTCConfig {
-  sessionId: string;
+  channelId: string;
   onTrack?: (event: RTCTrackEvent, participantId: string) => void;
 }
 
-export const useWebRTC = ({ sessionId, onTrack }: WebRTCConfig) => {
+export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>('new');
@@ -17,7 +17,7 @@ export const useWebRTC = ({ sessionId, onTrack }: WebRTCConfig) => {
   const { data: iceServers } = useTurnServers();
 
   const { sendSignal } = useVoipSignaling({
-    sessionId,
+    channelId,
     onSignal: async (message) => {
       try {
         const { sender_id, type, payload } = message;
