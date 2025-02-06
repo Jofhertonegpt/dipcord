@@ -12,17 +12,18 @@ interface WebRTCConfig {
 export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>('new');
   const localStream = useRef<MediaStream | null>(null);
 
   const { 
     peerConnections, 
-    createPeerConnection, 
-    processPendingIceCandidates,
+    createPeerConnection,
     pendingIceCandidates 
   } = usePeerConnections({ 
     channelId, 
     localStream: localStream.current, 
-    onTrack 
+    onTrack,
+    onConnectionStateChange: setConnectionState
   });
 
   const { checkAudioLevel } = useAudioAnalysis(localStream.current);
@@ -158,6 +159,7 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
   return {
     isInitialized,
     error,
+    connectionState,
     initializeWebRTC,
     cleanup,
     localStream: localStream.current

@@ -101,18 +101,49 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
         throw new Error("You are already in another voice channel");
       }
 
-      if (existingParticipant?.connection_state !== 'disconnected') {
+      // First check if user is already in this channel
+      const { data: existingParticipant, error: checkError } = await supabase
+        .from('voice_channel_participants')
+        .select('*')
+        .eq('channel_id', channelId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (checkError) throw checkError;
+
+      // If participant exists and is not disconnected, return it
+      if (existingParticipant && existingParticipant.connection_state !== 'disconnected') {
         return existingParticipant;
       }
 
+      // If participant exists but is disconnected, update it
+      if (existingParticipant) {
+        const { data, error } = await supabase
+          .from('voice_channel_participants')
+          .update({
+            connection_state: 'connecting',
+            is_muted: false,
+            is_deafened: false,
+            last_heartbeat: new Date().toISOString()
+          })
+          .eq('id', existingParticipant.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }
+
+      // If no participant exists, create a new one
       const { data, error } = await supabase
         .from('voice_channel_participants')
-        .upsert({
+        .insert({
           channel_id: channelId,
           user_id: user.id,
           is_muted: false,
           is_deafened: false,
-          connection_state: 'connecting'
+          connection_state: 'connecting',
+          last_heartbeat: new Date().toISOString()
         })
         .select()
         .single();

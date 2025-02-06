@@ -1,4 +1,5 @@
-import { useRef, useCallback } from 'react';
+import { useRef } from 'react';
+import { useIceServers } from './useIceServers';
 
 interface PeerConnectionsConfig {
   channelId: string;
@@ -15,13 +16,14 @@ export const usePeerConnections = ({
 }: PeerConnectionsConfig) => {
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const pendingIceCandidates = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
+  const { data: iceServers } = useIceServers();
 
-  const createPeerConnection = useCallback(async (participantId: string) => {
+  const createPeerConnection = async (participantId: string) => {
     try {
-      if (!iceServers) throw new Error('ICE servers not available');
-      
-      console.log('Creating peer connection for participant:', participantId);
-      
+      if (!iceServers) {
+        throw new Error('ICE servers not available');
+      }
+
       const pc = new RTCPeerConnection({
         iceServers,
         bundlePolicy: 'max-bundle',
@@ -32,9 +34,6 @@ export const usePeerConnections = ({
       pc.onconnectionstatechange = () => {
         console.log(`[ICE] Connection state with ${participantId}:`, pc.connectionState);
         onConnectionStateChange?.(pc.connectionState);
-        if (pc.connectionState === 'failed') {
-          console.error('Connection failed with participant:', participantId);
-        }
       };
 
       pc.oniceconnectionstatechange = () => {
@@ -69,7 +68,7 @@ export const usePeerConnections = ({
       console.error('Error creating peer connection:', error);
       throw error;
     }
-  }, [channelId, localStream, onTrack]);
+  };
 
   return {
     peerConnections: peerConnections.current,
