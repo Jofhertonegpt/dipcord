@@ -6,36 +6,28 @@ interface PeerConnectionsConfig {
   channelId: string;
   localStream: MediaStream | null;
   onTrack?: (event: RTCTrackEvent, participantId: string) => void;
+  onError?: (error: Error) => void;
 }
 
-export const usePeerConnections = ({ 
-  channelId, 
-  localStream, 
-  onTrack 
+export const usePeerConnections = ({
+  channelId,
+  localStream,
+  onTrack,
+  onError
 }: PeerConnectionsConfig) => {
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const pendingIceCandidates = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
+  const connectionState = useRef<Map<string, RTCPeerConnectionState>>(new Map());
   const { data: iceServers } = useIceServers();
 
-  const processPendingIceCandidates = async (pc: RTCPeerConnection, participantId: string) => {
-    const candidates = pendingIceCandidates.current.get(participantId) || [];
-    console.log(`Processing ${candidates.length} pending ICE candidates for ${participantId}`);
-    
-    for (const candidate of candidates) {
-      try {
-        if (pc.remoteDescription) {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
-          console.log(`Successfully added pending ICE candidate for ${participantId}`);
-        } else {
-          console.log(`Skipping ICE candidate - remote description not set for ${participantId}`);
-          continue;
-        }
-      } catch (error) {
-        console.error(`Failed to add pending ICE candidate for ${participantId}:`, error);
-      }
+  const handleConnectionStateChange = (pc: RTCPeerConnection, participantId: string) => {
+    const state = pc.connectionState;
+    connectionState.current.set(participantId, state);
+    console.log(`Connection state with ${participantId}:`, state);
+
+    if (state === 'failed' || state === 'disconnected') {
+      onError?.(new Error(`Connection ${state} with participant ${participantId}`));
     }
-    
-    pendingIceCandidates.current.delete(participantId);
   };
 
   const createPeerConnection = useCallback(async (participantId: string) => {
@@ -53,26 +45,34 @@ export const usePeerConnections = ({
 
       pc.oniceconnectionstatechange = () => {
         console.log(`[ICE] Connection state with ${participantId}:`, pc.iceConnectionState);
-        console.log(`[ICE] Gathering state:`, pc.iceGatheringState);
-        console.log(`[ICE] Signaling state:`, pc.signalingState);
+        if (pc.iceConnectionState === 'failed') {
+          onError?.(new Error('ICE connection failed'));
+        }
       };
+
+      pc.onconnectionstatechange = () => handleConnectionStateChange(pc, participantId);
 
       pc.onicecandidate = async (event) => {
         if (event.candidate) {
           console.log(`[ICE] New candidate for ${participantId}`);
-          const { sendSignal } = useSignaling({ 
-            channelId, 
-            onSignalingMessage: () => {} 
-          });
-          
-          await sendSignal(participantId, 'ice-candidate', {
-            candidate: {
-              candidate: event.candidate.candidate,
-              sdpMLineIndex: event.candidate.sdpMLineIndex,
-              sdpMid: event.candidate.sdpMid,
-              usernameFragment: event.candidate.usernameFragment
-            }
-          });
+          try {
+            const { sendSignal } = useSignaling({ 
+              channelId, 
+              onSignalingMessage: () => {} 
+            });
+            
+            await sendSignal(participantId, 'ice-candidate', {
+              candidate: {
+                candidate: event.candidate.candidate,
+                sdpMLineIndex: event.candidate.sdpMLineIndex,
+                sdpMid: event.candidate.sdpMid,
+                usernameFragment: event.candidate.usernameFragment
+              }
+            });
+          } catch (error) {
+            console.error('Error sending ICE candidate:', error);
+            onError?.(new Error('Failed to send ICE candidate'));
+          }
         }
       };
 
@@ -94,12 +94,14 @@ export const usePeerConnections = ({
       return pc;
     } catch (error) {
       console.error('Error creating peer connection:', error);
+      onError?.(new Error('Failed to create peer connection'));
       return null;
     }
-  }, [channelId, iceServers, localStream, onTrack]);
+  }, [channelId, iceServers, onTrack, onError]);
 
   return {
     peerConnections: peerConnections.current,
+    connectionState: connectionState.current,
     createPeerConnection,
     processPendingIceCandidates,
     pendingIceCandidates: pendingIceCandidates.current
