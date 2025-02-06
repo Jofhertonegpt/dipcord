@@ -12,6 +12,12 @@ interface VoiceParticipantListProps {
 export const VoiceParticipantList = ({ channelId }: VoiceParticipantListProps) => {
   const queryClient = useQueryClient();
 
+  /**
+   * Fetches current voice channel participants
+   * Includes user profile information and connection states
+   * 
+   * @query
+   */
   const { data: participants } = useQuery({
     queryKey: ['voice-participants', channelId],
     queryFn: async () => {
@@ -33,7 +39,10 @@ export const VoiceParticipantList = ({ channelId }: VoiceParticipantListProps) =
     },
   });
 
-  // Listen for real-time updates to voice channel participants
+  /**
+   * Sets up real-time subscription for participant updates
+   * Handles joins, leaves, and state changes
+   */
   useEffect(() => {
     const channel = supabase
       .channel('voice_participants')
