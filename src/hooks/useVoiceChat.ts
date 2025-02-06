@@ -40,19 +40,13 @@ export const useVoiceChat = ({ channelId, onTrack }: VoiceChatConfig) => {
   useEffect(() => {
     if (!channelId) return;
 
-    const channel = supabase
-      .channel(`voice-${channelId}`)
+    const channel = supabase.channel(`voice-${channelId}`)
       .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'voice_signaling',
-          filter: `channel_id=eq.${channelId}`,
-        },
-        async (payload: { new: VoiceSignal }) => {
+        'broadcast',
+        { event: 'voice-signal' },
+        async (payload: { type: string; data: VoiceSignal }) => {
           try {
-            const { sender_id, type, payload: signalPayload } = payload.new;
+            const { sender_id, type, payload: signalPayload } = payload.data;
             
             // Don't process our own messages
             const { data: { user } } = await supabase.auth.getUser();

@@ -10,19 +10,13 @@ interface UseVoipSignalingProps {
 
 export const useVoipSignaling = ({ channelId, onSignal }: UseVoipSignalingProps) => {
   useEffect(() => {
-    const channel = supabase
-      .channel(`voice-${channelId}`)
+    const channel = supabase.channel(`voice-${channelId}`)
       .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'voice_signaling',
-          filter: `channel_id=eq.${channelId}`,
-        },
+        'broadcast',
+        { event: 'voice-signal' },
         (payload) => {
           console.log('Received VOIP signal:', payload);
-          onSignal(payload.new as VoiceSignal);
+          onSignal(payload.payload as VoiceSignal);
         }
       )
       .subscribe(status => {
@@ -42,17 +36,17 @@ export const useVoipSignaling = ({ channelId, onSignal }: UseVoipSignalingProps)
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { error } = await supabase
-        .from('voice_signaling')
-        .insert({
+      await supabase.channel(`voice-${channelId}`).send({
+        type: 'broadcast',
+        event: 'voice-signal',
+        payload: {
           channel_id: channelId,
           sender_id: user.id,
           receiver_id: receiverId,
           type,
           payload
-        });
-
-      if (error) throw error;
+        }
+      });
     } catch (error: any) {
       console.error('Error sending VOIP signal:', error);
       toast.error(`Failed to send VOIP signal: ${error.message}`);
