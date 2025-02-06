@@ -3,7 +3,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import AnimatedBackground from "./components/AnimatedBackground";
 import { Navigation } from "./components/Navigation";
 import { ThemeProvider } from "./hooks/use-theme";
 import Index from "./pages/Index";
@@ -40,8 +39,7 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="app-theme">
         <TooltipProvider>
-          <div className="relative min-h-screen font-sans">
-            <AnimatedBackground />
+          <div className="relative min-h-screen font-sans bg-[#403E43]">
             <div className="relative z-10">
               <Toaster />
               <Sonner />

@@ -1,5 +1,3 @@
-import { useEffect, useRef, useState } from "react";
-import { SnowfallAnimation } from "./animations/SnowfallAnimation";
 import { motion } from "framer-motion";
 
 const BackgroundImage = () => (
@@ -25,40 +23,9 @@ const BackgroundImage = () => (
 );
 
 const AnimatedBackground = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationRef = useRef<SnowfallAnimation>();
-  const [isVisible, setIsVisible] = useState(true);
-
-  useEffect(() => {
-    if (!canvasRef.current) return;
-    
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsVisible(entry.isIntersecting);
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(canvasRef.current);
-    
-    if (isVisible) {
-      animationRef.current = new SnowfallAnimation(canvasRef.current);
-      animationRef.current.start();
-    }
-    
-    return () => {
-      observer.disconnect();
-      animationRef.current?.cleanup();
-    };
-  }, [isVisible]);
-
   return (
     <div className="fixed inset-0 -z-10 overflow-hidden">
       <BackgroundImage />
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 w-full h-full"
-      />
     </div>
   );
 };
