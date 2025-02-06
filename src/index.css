@@ -6,23 +6,23 @@
 
 @layer base {
   :root {
-    --background: 27 27 27;
-    --foreground: 255 230 199;
+    --background: 255 230 199;
+    --foreground: 255 165 89;
     
     --card: 69 69 69;
-    --card-foreground: 255 230 199;
+    --card-foreground: 255 165 89;
     
     --popover: 69 69 69;
-    --popover-foreground: 255 230 199;
+    --popover-foreground: 255 165 89;
     
     --primary: 255 96 0;
     --primary-foreground: 255 230 199;
     
-    --secondary: 255 165 89;
-    --secondary-foreground: 69 69 69;
+    --secondary: 69 69 69;
+    --secondary-foreground: 255 165 89;
     
     --muted: 69 69 69;
-    --muted-foreground: 255 230 199;
+    --muted-foreground: 255 165 89;
     
     --accent: 255 165 89;
     --accent-foreground: 69 69 69;
@@ -39,19 +39,19 @@
 
   .dark {
     --background: 69 69 69;
-    --foreground: 255 230 199;
+    --foreground: 255 165 89;
     
     --card: 45 45 45;
-    --card-foreground: 255 230 199;
+    --card-foreground: 255 165 89;
     
     --popover: 45 45 45;
-    --popover-foreground: 255 230 199;
+    --popover-foreground: 255 165 89;
     
     --primary: 255 96 0;
     --primary-foreground: 255 230 199;
     
-    --secondary: 255 165 89;
-    --secondary-foreground: 69 69 69;
+    --secondary: 69 69 69;
+    --secondary-foreground: 255 165 89;
     
     --muted: 45 45 45;
     --muted-foreground: 255 165 89;
@@ -101,7 +101,7 @@
 
 @layer utilities {
   .glass-morphism {
-    @apply backdrop-blur-xl bg-darkGray/5 border border-lightOrange/10 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3)];
+    @apply backdrop-blur-xl bg-secondary/5 border border-accent/10 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3)];
   }
   
   .hover-scale {
@@ -109,6 +109,6 @@
   }
 
   .winter-gradient {
-    @apply bg-gradient-to-b from-lightBeige via-lightOrange to-brightOrange;
+    @apply bg-gradient-to-b from-background via-accent to-primary;
   }
 }
