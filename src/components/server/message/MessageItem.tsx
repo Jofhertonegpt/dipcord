@@ -20,7 +20,7 @@ interface MessageItemProps {
 
 export const MessageItem = ({ id, content, created_at, sender, media_urls }: MessageItemProps) => {
   return (
-    <div className="flex items-start group hover:bg-white/5 px-4 py-2 transition-colors">
+    <div className="flex items-start hover:bg-white/5 px-4 py-2 transition-colors">
       <Dialog>
         <DialogTrigger asChild>
           <Avatar className="cursor-pointer w-10 h-10 shrink-0">

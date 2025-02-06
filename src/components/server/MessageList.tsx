@@ -85,13 +85,9 @@ export const MessageList = ({ channelId }: MessageListProps) => {
   }
 
   return (
-    <div className="flex-1 overflow-hidden flex flex-col">
-      <ScrollArea 
-        ref={scrollRef} 
-        className="flex-1"
-        style={{ height: 'calc(100vh - 10rem)' }}
-      >
-        <div className="space-y-1">
+    <div className="flex-1 h-[calc(100vh-10rem)] overflow-hidden">
+      <ScrollArea ref={scrollRef} className="h-full">
+        <div>
           {messages?.map((message) => (
             <MessageItem
               key={message.id}
