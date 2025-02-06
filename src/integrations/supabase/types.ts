@@ -9,6 +9,48 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      call_signaling: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          receiver_id: string
+          sender_id: string
+          signal: Json
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          receiver_id: string
+          sender_id: string
+          signal: Json
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          receiver_id?: string
+          sender_id?: string
+          signal?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_signaling_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_signaling_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channels: {
         Row: {
           created_at: string
@@ -182,36 +224,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      ice_servers: {
-        Row: {
-          created_at: string
-          credential: string | null
-          id: string
-          is_active: boolean | null
-          updated_at: string
-          urls: string[]
-          username: string | null
-        }
-        Insert: {
-          created_at?: string
-          credential?: string | null
-          id?: string
-          is_active?: boolean | null
-          updated_at?: string
-          urls: string[]
-          username?: string | null
-        }
-        Update: {
-          created_at?: string
-          credential?: string | null
-          id?: string
-          is_active?: boolean | null
-          updated_at?: string
-          urls?: string[]
-          username?: string | null
-        }
-        Relationships: []
       }
       likes: {
         Row: {
