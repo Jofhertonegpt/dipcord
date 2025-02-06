@@ -1,11 +1,10 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { VoiceParticipantList } from "./VoiceParticipantList";
 import { VoiceControls } from "./VoiceControls";
 import { supabase } from "@/integrations/supabase/client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useWebRTC } from "@/hooks/useWebRTC";
-import { VoiceParticipant } from "./VoiceParticipant";
+import { useVoiceChat } from "@/hooks/useVoiceChat";
 import { Loader2 } from "lucide-react";
 
 interface VoiceChannelProps {
@@ -16,27 +15,20 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
   const [isConnected, setIsConnected] = useState(false);
   const [participants, setParticipants] = useState(new Map());
   const [isConnecting, setIsConnecting] = useState(false);
-  const joinSoundRef = useRef<HTMLAudioElement>();
-  const leaveSoundRef = useRef<HTMLAudioElement>();
-  const heartbeatInterval = useRef<NodeJS.Timeout>();
   const queryClient = useQueryClient();
 
   const { 
     isInitialized, 
-    error: webRTCError, 
+    error: voiceChatError, 
     connectionState, 
-    initializeWebRTC, 
-    cleanup, 
+    initialize: initializeVoiceChat,
+    cleanup: cleanupVoiceChat,
     localStream 
-  } = useWebRTC({
+  } = useVoiceChat({
     channelId,
     onTrack: (event, participantId) => {
-      console.log(`Received track from participant ${participantId}`);
       const [stream] = event.streams;
-      if (!stream) {
-        console.warn('No stream in track event');
-        return;
-      }
+      if (!stream) return;
       
       setParticipants(prev => {
         const newMap = new Map(prev);
@@ -49,168 +41,30 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     }
   });
 
-  // Check if user is already in any voice channel
-  const { data: activeVoiceParticipation } = useQuery({
-    queryKey: ['voice-participant-active'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-
-      const { data, error } = await supabase
-        .from('voice_channel_participants')
-        .select('channel_id, connection_state')
-        .eq('user_id', user.id)
-        .neq('connection_state', 'disconnected')
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error checking active voice participation:', error);
-        return null;
-      }
-      return data;
-    },
-  });
-
-  // Check if user is already in this specific channel
-  const { data: existingParticipant } = useQuery({
-    queryKey: ['voice-participant', channelId],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-
-      const { data, error } = await supabase
-        .from('voice_channel_participants')
-        .select('*, profiles(username, avatar_url)')
-        .eq('channel_id', channelId)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error checking existing participant:', error);
-        return null;
-      }
-      return data;
-    },
-    enabled: !!channelId,
-  });
-
-  // Add heartbeat mutation
-  const updateHeartbeat = useMutation({
+  const joinChannel = useMutation({
     mutationFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
       const { error } = await supabase
         .from('voice_channel_participants')
-        .update({
-          last_heartbeat: new Date().toISOString(),
-          connection_state: connectionState
-        })
-        .eq('channel_id', channelId)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-    },
-  });
-
-  // Start heartbeat when connected
-  useEffect(() => {
-    if (isConnected) {
-      updateHeartbeat.mutate();
-      
-      heartbeatInterval.current = setInterval(() => {
-        updateHeartbeat.mutate();
-      }, 15000);
-    }
-
-    return () => {
-      if (heartbeatInterval.current) {
-        clearInterval(heartbeatInterval.current);
-      }
-    };
-  }, [isConnected, connectionState]);
-
-  useEffect(() => {
-    joinSoundRef.current = new Audio("/sounds/join.mp3");
-    joinSoundRef.current.volume = 0.5;
-    
-    leaveSoundRef.current = new Audio("/sounds/leave.mp3");
-    leaveSoundRef.current.volume = 0.5;
-
-    return () => {
-      joinSoundRef.current = undefined;
-      leaveSoundRef.current = undefined;
-    };
-  }, []);
-
-  const joinChannel = useMutation({
-    mutationFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      if (activeVoiceParticipation && activeVoiceParticipation.channel_id !== channelId) {
-        throw new Error("You are already in another voice channel");
-      }
-
-      const { data: existingParticipant, error: checkError } = await supabase
-        .from('voice_channel_participants')
-        .select('*')
-        .eq('channel_id', channelId)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (checkError) throw checkError;
-
-      if (existingParticipant && existingParticipant.connection_state !== 'disconnected') {
-        return existingParticipant;
-      }
-
-      if (existingParticipant) {
-        const { data, error } = await supabase
-          .from('voice_channel_participants')
-          .update({
-            connection_state: 'connecting',
-            is_muted: false,
-            is_deafened: false,
-            last_heartbeat: new Date().toISOString()
-          })
-          .eq('id', existingParticipant.id)
-          .select()
-          .single();
-
-        if (error) throw error;
-        return data;
-      }
-
-      const { data, error } = await supabase
-        .from('voice_channel_participants')
         .insert({
           channel_id: channelId,
           user_id: user.id,
-          is_muted: false,
-          is_deafened: false,
-          connection_state: 'connecting',
-          last_heartbeat: new Date().toISOString()
-        })
-        .select()
-        .single();
+          connection_state: 'connecting'
+        });
 
       if (error) throw error;
-      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voice-participants', channelId] });
-      queryClient.invalidateQueries({ queryKey: ['voice-participant', channelId] });
       setIsConnected(true);
       toast.success("Joined voice channel");
-      if (joinSoundRef.current) {
-        joinSoundRef.current.play().catch(console.error);
-      }
     },
     onError: (error: Error) => {
       toast.error(`Failed to join channel: ${error.message}`);
       setIsConnecting(false);
-      cleanup();
+      cleanupVoiceChat();
     },
   });
 
@@ -221,11 +75,7 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
 
       const { error } = await supabase
         .from('voice_channel_participants')
-        .update({
-          connection_state: 'disconnected',
-          is_muted: false,
-          is_deafened: false
-        })
+        .update({ connection_state: 'disconnected' })
         .eq('channel_id', channelId)
         .eq('user_id', user.id);
 
@@ -233,13 +83,9 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voice-participants', channelId] });
-      queryClient.invalidateQueries({ queryKey: ['voice-participant', channelId] });
       setIsConnected(false);
-      cleanup();
+      cleanupVoiceChat();
       toast.success("Left voice channel");
-      if (leaveSoundRef.current) {
-        leaveSoundRef.current.play().catch(console.error);
-      }
     },
     onError: (error: Error) => {
       toast.error(`Failed to leave channel: ${error.message}`);
@@ -262,10 +108,10 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     };
   }, [isConnected]);
 
-  if (webRTCError) {
+  if (voiceChatError) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-4 text-center space-y-4">
-        <p className="text-red-500">Error: {webRTCError}</p>
+        <p className="text-red-500">Error: {voiceChatError}</p>
         <button
           onClick={() => leaveChannel.mutate()}
           className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
@@ -280,25 +126,14 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto">
         <VoiceParticipantList channelId={channelId} />
-        {Array.from(participants.entries()).map(([participantId, { stream }]) => (
-          <VoiceParticipant
-            key={participantId}
-            username={participantId}
-            stream={stream}
-          />
-        ))}
       </div>
       {!isConnected ? (
         <div className="p-4 border-t border-white/10">
           <button
             onClick={async () => {
-              if (activeVoiceParticipation && activeVoiceParticipation.channel_id !== channelId) {
-                toast.error("You are already in another voice channel");
-                return;
-              }
               setIsConnecting(true);
               try {
-                await initializeWebRTC();
+                await initializeVoiceChat();
                 await joinChannel.mutateAsync();
               } catch (error: any) {
                 console.error('Failed to join voice channel:', error);
