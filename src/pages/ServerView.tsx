@@ -28,8 +28,11 @@ interface Message {
     id: string;
     username: string;
     avatar_url: string | null;
+    is_online: boolean;
   } | null;
   media_urls: string[] | null;
+  is_read?: boolean;
+  is_delivered?: boolean;
 }
 
 const ServerView = () => {
