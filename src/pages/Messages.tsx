@@ -98,7 +98,11 @@ const Messages = () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)]">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="flex h-[calc(100vh-4rem)] bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+    >
       <AnimatePresence>
         {(sidebarOpen || !isMobile) && (
           <motion.div
@@ -106,10 +110,10 @@ const Messages = () => {
             animate={{ x: 0 }}
             exit={{ x: -300 }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="w-full md:w-80 border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+            className="w-full md:w-80 border-r bg-card"
           >
             <div className="p-4 space-y-4">
-              <h2 className="text-xl font-bold">Messages</h2>
+              <h2 className="text-xl font-bold text-card-foreground">Messages</h2>
               <UserList
                 users={users}
                 selectedUser={selectedUser}
@@ -150,7 +154,7 @@ const Messages = () => {
           />
         </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
