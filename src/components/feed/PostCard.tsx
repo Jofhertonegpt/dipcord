@@ -20,6 +20,14 @@ export const PostCard = ({ post, currentUser, onLike, onUnlike, onShare }: PostC
   const hasLiked = post.likes?.some((like: any) => like.user_id === currentUser?.id);
   const isMobile = useIsMobile();
 
+  // Extract URLs from content
+  const urls = post.content.match(/(https?:\/\/[^\s]+)/g) || [];
+  const embeddedMedia = urls.map(url => ({
+    url,
+    type: url.includes('youtube.com') || url.includes('youtu.be') ? 'youtube' :
+          url.includes('medal.tv') ? 'medal' : 'link'
+  }));
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -60,9 +68,9 @@ export const PostCard = ({ post, currentUser, onLike, onUnlike, onShare }: PostC
               </div>
             )}
 
-            {post.embedded_media && post.embedded_media.length > 0 && (
+            {embeddedMedia.length > 0 && (
               <div className="mt-4 space-y-4">
-                {post.embedded_media.map((embed: any, index: number) => (
+                {embeddedMedia.map((embed: any, index: number) => (
                   <MediaEmbed key={index} url={embed.url} />
                 ))}
               </div>

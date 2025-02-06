@@ -1,11 +1,12 @@
 import { format } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { ProfileView } from "@/components/profile/ProfileView";
 import { MediaPreview } from "./MediaPreview";
 import { Badge } from "@/components/ui/badge";
 import { Check, Lock } from "lucide-react";
+import { useState } from "react";
 
 interface MessageSender {
   id: string;
@@ -33,9 +34,11 @@ export const MessageItem = ({
   isRead = false,
   isDelivered = true
 }: MessageItemProps) => {
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+
   return (
     <div className="flex items-start hover:bg-black/30 px-4 py-2 transition-colors group">
-      <Dialog>
+      <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
         <ContextMenu>
           <ContextMenuTrigger>
             <div className="relative cursor-pointer">
@@ -51,11 +54,12 @@ export const MessageItem = ({
             </div>
           </ContextMenuTrigger>
           <ContextMenuContent className="bg-[#403E43] border-[#33C3F0]/20 text-white">
-            <DialogTrigger asChild>
-              <ContextMenuItem className="hover:bg-[#33C3F0]/10 focus:bg-[#33C3F0]/10 cursor-pointer">
-                View Profile
-              </ContextMenuItem>
-            </DialogTrigger>
+            <ContextMenuItem 
+              className="hover:bg-[#33C3F0]/10 focus:bg-[#33C3F0]/10 cursor-pointer"
+              onClick={() => setIsProfileOpen(true)}
+            >
+              View Profile
+            </ContextMenuItem>
           </ContextMenuContent>
         </ContextMenu>
         <DialogContent>
