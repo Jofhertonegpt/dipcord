@@ -21,16 +21,32 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     error,
     initializeWebRTC,
     cleanup,
-    localStream
+    localStream,
+    createPeer
   } = useWebRTC({
     channelId,
     onTrack: (event, participantId) => {
       console.log(`Received track from ${participantId}:`, event.track.kind);
-      // Handle incoming audio track
       const audio = new Audio();
       audio.srcObject = event.streams[0];
       audio.play().catch(console.error);
     }
+  });
+
+  // Query existing participants
+  const { data: participants } = useQuery({
+    queryKey: ['voice-participants', channelId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('voice_channel_participants')
+        .select('*, profiles(id, username, avatar_url)')
+        .eq('channel_id', channelId)
+        .eq('connection_state', 'connected');
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!channelId,
   });
 
   // Check if user is already in this specific channel
@@ -94,6 +110,16 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
       queryClient.invalidateQueries({ queryKey: ['voice-participants', channelId] });
       setIsConnected(true);
       toast.success("Joined voice channel");
+
+      // Create peer connections with existing participants
+      if (participants) {
+        participants.forEach(participant => {
+          const { data: { user } } = supabase.auth.getUser();
+          if (user && participant.user_id !== user.id) {
+            createPeer(participant.user_id, true);
+          }
+        });
+      }
     },
     onError: (error: Error) => {
       toast.error(`Failed to join channel: ${error.message}`);
