@@ -40,46 +40,50 @@ export const useVoiceChat = ({ channelId, onTrack }: VoiceChatConfig) => {
   useEffect(() => {
     if (!channelId) return;
 
-    const channel = supabase.channel(`voice-${channelId}`)
-      .on(
-        'broadcast',
-        { event: 'voice-signal' },
-        async (payload: { type: string; data: VoiceSignal }) => {
-          try {
-            const { sender_id, type, payload: signalPayload } = payload.data;
-            
-            // Don't process our own messages
-            const { data: { user } } = await supabase.auth.getUser();
-            if (sender_id === user?.id) return;
+    const channel = supabase.channel(`voice-${channelId}`, {
+      config: {
+        broadcast: { self: true }
+      }
+    });
 
-            console.log('Received voice signal:', { type, sender_id });
-            
-            let pc = peerConnectionsRef.current.get(sender_id);
+    channel.on(
+      'broadcast',
+      { event: 'voice-signal' },
+      async (payload: { payload: VoiceSignal }) => {
+        try {
+          const { sender_id, type, payload: signalPayload } = payload.payload;
+          
+          // Don't process our own messages
+          const { data: { user } } = await supabase.auth.getUser();
+          if (sender_id === user?.id) return;
 
-            if (!pc && (type === 'offer' || type === 'answer')) {
-              pc = await createPeerConnection(sender_id);
-            }
+          console.log('Received voice signal:', { type, sender_id });
+          
+          let pc = peerConnectionsRef.current.get(sender_id);
 
-            if (!pc) return;
-
-            switch (type) {
-              case 'offer':
-                await handleOffer(pc, sender_id, signalPayload);
-                break;
-              case 'answer':
-                await handleAnswer(pc, signalPayload);
-                break;
-              case 'ice-candidate':
-                await handleIceCandidate(pc, signalPayload);
-                break;
-            }
-          } catch (error) {
-            console.error('Error handling voice signal:', error);
-            toast.error('Error in voice connection');
+          if (!pc && (type === 'offer' || type === 'answer')) {
+            pc = await createPeerConnection(sender_id);
           }
+
+          if (!pc) return;
+
+          switch (type) {
+            case 'offer':
+              await handleOffer(pc, sender_id, signalPayload);
+              break;
+            case 'answer':
+              await handleAnswer(pc, signalPayload);
+              break;
+            case 'ice-candidate':
+              await handleIceCandidate(pc, signalPayload);
+              break;
+          }
+        } catch (error) {
+          console.error('Error handling voice signal:', error);
+          toast.error('Error in voice connection');
         }
-      )
-      .subscribe();
+      }
+    ).subscribe();
 
     return () => {
       supabase.removeChannel(channel);
