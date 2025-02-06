@@ -20,6 +20,7 @@ export const VoiceParticipantList = ({ channelId }: VoiceParticipantListProps) =
         .select(`
           *,
           user:profiles(
+            id,
             username,
             avatar_url
           )
