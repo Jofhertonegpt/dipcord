@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { SnowfallAnimation } from "./animations/SnowfallAnimation";
+import { motion } from "framer-motion";
 
 const BackgroundImage = () => (
-  <div className="absolute inset-0 -z-10">
+  <motion.div 
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    transition={{ duration: 1 }}
+    className="absolute inset-0 -z-10"
+  >
     <picture>
       <source
         media="(max-width: 768px)"
@@ -12,25 +18,39 @@ const BackgroundImage = () => (
         src="/lovable-uploads/a51ed3d1-cea0-4481-bd89-2dc96f2557c3.png"
         alt="Background"
         className="object-cover w-full h-full"
+        loading="eager"
       />
     </picture>
-  </div>
+  </motion.div>
 );
 
 const AnimatedBackground = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<SnowfallAnimation>();
+  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
     if (!canvasRef.current) return;
     
-    animationRef.current = new SnowfallAnimation(canvasRef.current);
-    animationRef.current.start();
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting);
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(canvasRef.current);
+    
+    if (isVisible) {
+      animationRef.current = new SnowfallAnimation(canvasRef.current);
+      animationRef.current.start();
+    }
     
     return () => {
+      observer.disconnect();
       animationRef.current?.cleanup();
     };
-  }, []);
+  }, [isVisible]);
 
   return (
     <div className="fixed inset-0 -z-10 overflow-hidden">
