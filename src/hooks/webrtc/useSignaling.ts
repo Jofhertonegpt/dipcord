@@ -13,7 +13,6 @@ export const useSignaling = ({ channelId, onSignalingMessage }: SignalingConfig)
 
   useEffect(() => {
     console.log('Setting up voice signaling subscription');
-    
     const channel = supabase
       .channel(`voice-${channelId}`)
       .on('postgres_changes', {

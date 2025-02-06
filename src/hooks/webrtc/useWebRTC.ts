@@ -1,5 +1,6 @@
-import { useState, useRef, useCallback } from 'react';
-import SimplePeer from 'simple-peer';
+import { useState, useRef } from 'react';
+import { useAudioAnalysis } from './useAudioAnalysis';
+import { usePeerConnections } from './usePeerConnections';
 import { useSignaling } from './useSignaling';
 import { toast } from 'sonner';
 
@@ -12,114 +13,125 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>('new');
-  const localStreamRef = useRef<MediaStream | null>(null);
-  const peers = useRef<Map<string, SimplePeer.Instance>>(new Map());
+  const localStream = useRef<MediaStream | null>(null);
 
-  // Move useSignaling hook before createPeer to avoid the declaration order issue
-  const { sendSignal } = useSignaling({
-    channelId,
-    onSignalingMessage: handleSignalingMessage
+  const { 
+    peerConnections, 
+    createPeerConnection, 
+    pendingIceCandidates 
+  } = usePeerConnections({ 
+    channelId, 
+    localStream: localStream.current, 
+    onTrack,
+    onConnectionStateChange: (state) => {
+      setConnectionState(state);
+    }
   });
 
-  const createPeer = useCallback((participantId: string, initiator: boolean = false) => {
-    if (!localStreamRef.current) {
-      console.error('Cannot create peer without local stream');
-      return null;
-    }
+  const { checkAudioLevel } = useAudioAnalysis(localStream.current);
 
-    console.log(`Creating ${initiator ? 'initiator' : 'receiver'} peer for ${participantId}`);
-    
-    const peer = new SimplePeer({
-      initiator,
-      stream: localStreamRef.current,
-      trickle: false,
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:global.stun.twilio.com:3478' }
-        ]
-      }
-    });
-
-    peer.on('signal', (data) => {
-      console.log('Sending signal to:', participantId);
-      sendSignal(participantId, initiator ? 'offer' : 'answer', data);
-    });
-
-    peer.on('connect', () => {
-      console.log('Peer connected:', participantId);
-      setConnectionState('connected');
-    });
-
-    peer.on('error', (err) => {
-      console.error('Peer error:', err);
-      toast.error(`Connection error with peer: ${err.message}`);
-      peer?.destroy();
-      peers.current.delete(participantId);
-    });
-
-    peer.on('track', (track, stream) => {
-      console.log('Received track:', track.kind, 'from:', participantId);
-      if (onTrack) {
-        onTrack({
-          track,
-          streams: [stream],
-          receiver: {} as RTCRtpReceiver,
-          transceiver: {} as RTCRtpTransceiver,
-          type: 'track',
-          bubbles: false,
-          cancelBubble: false,
-          cancelable: false,
-          composed: false,
-          currentTarget: null,
-          defaultPrevented: false,
-          eventPhase: 0,
-          isTrusted: true,
-          returnValue: true,
-          srcElement: null,
-          target: null,
-          timeStamp: Date.now(),
-          AT_TARGET: 2,
-          BUBBLING_PHASE: 3,
-          CAPTURING_PHASE: 1,
-          NONE: 0,
-          composedPath: () => [],
-          initEvent: () => {},
-          preventDefault: () => {},
-          stopImmediatePropagation: () => {},
-          stopPropagation: () => {},
-        } as RTCTrackEvent, participantId);
-      }
-    });
-
-    peers.current.set(participantId, peer);
-    return peer;
-  }, [onTrack, sendSignal]);
-
-  const handleSignalingMessage = useCallback(async (message: any) => {
+  const handleSignalingMessage = async (message: any) => {
     const { sender_id, type, payload } = message;
     console.log('Handling signaling message:', { type, sender_id });
     
     try {
-      let peer = peers.current.get(sender_id);
+      let pc = peerConnections.get(sender_id);
 
-      if (type === 'offer') {
-        if (peer) {
-          console.log('Destroying existing peer for new offer');
-          peer.destroy();
-        }
-        peer = createPeer(sender_id, false);
+      if (type === 'ice-candidate' && !pc) {
+        console.log('Storing ICE candidate for later processing');
+        const candidates = pendingIceCandidates.get(sender_id) || [];
+        candidates.push(payload.candidate);
+        pendingIceCandidates.set(sender_id, candidates);
+        return;
       }
 
-      if (peer && (type === 'offer' || type === 'answer')) {
-        console.log('Signaling peer:', type);
-        peer.signal(payload);
+      if (!pc && (type === 'offer' || type === 'answer')) {
+        console.log('Creating new peer connection for sender:', sender_id);
+        pc = await createPeerConnection(sender_id);
+        if (!pc) {
+          throw new Error('Failed to create peer connection');
+        }
+      }
+
+      switch (type) {
+        case 'offer':
+          await handleOffer(pc, sender_id, payload);
+          break;
+        case 'answer':
+          await handleAnswer(pc, payload);
+          break;
+        case 'ice-candidate':
+          await handleIceCandidate(pc, payload);
+          break;
+        default:
+          console.warn('Unknown signaling message type:', type);
       }
     } catch (error: any) {
       console.error('Error handling signaling message:', error);
-      toast.error(`Signaling error: ${error.message}`);
+      toast.error(`Connection error: ${error.message}`);
+      setError(error.message);
     }
-  }, [createPeer]);
+  };
+
+  const { sendSignal, signalingError } = useSignaling({ 
+    channelId, 
+    onSignalingMessage: handleSignalingMessage 
+  });
+
+  const handleOffer = async (pc: RTCPeerConnection, senderId: string, payload: any) => {
+    try {
+      if (pc.signalingState !== 'stable') {
+        console.warn('Skipping offer - connection not stable');
+        return;
+      }
+      
+      await pc.setRemoteDescription(new RTCSessionDescription({
+        type: payload.type,
+        sdp: payload.sdp
+      }));
+      
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      
+      await sendSignal(senderId, 'answer', {
+        type: answer.type,
+        sdp: answer.sdp
+      });
+    } catch (error: any) {
+      console.error('Error handling offer:', error);
+      toast.error(`Failed to process connection offer: ${error.message}`);
+      throw error;
+    }
+  };
+
+  const handleAnswer = async (pc: RTCPeerConnection, payload: any) => {
+    try {
+      await pc.setRemoteDescription(new RTCSessionDescription({
+        type: payload.type,
+        sdp: payload.sdp
+      }));
+    } catch (error: any) {
+      console.error('Error handling answer:', error);
+      toast.error(`Failed to process connection answer: ${error.message}`);
+      throw error;
+    }
+  };
+
+  const handleIceCandidate = async (pc: RTCPeerConnection, payload: any) => {
+    if (!payload.candidate) {
+      console.log('Skipping null ICE candidate');
+      return;
+    }
+
+    try {
+      await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+      console.log('Successfully added ICE candidate');
+    } catch (error: any) {
+      console.error('Error adding ICE candidate:', error);
+      toast.error(`Failed to establish connection path: ${error.message}`);
+      throw error;
+    }
+  };
 
   const initializeWebRTC = async () => {
     try {
@@ -138,7 +150,7 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         video: false
       });
       
-      localStreamRef.current = stream;
+      localStream.current = stream;
       setIsInitialized(true);
       setError(null);
       console.log('WebRTC initialized successfully');
@@ -153,18 +165,17 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
   const cleanup = () => {
     console.log('Cleaning up WebRTC resources');
     
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => {
+    if (localStream.current) {
+      localStream.current.getTracks().forEach(track => {
         track.stop();
         console.log('Stopped track:', track.kind);
       });
-      localStreamRef.current = null;
+      localStream.current = null;
     }
 
-    peers.current.forEach(peer => {
-      peer.destroy();
+    peerConnections.forEach(pc => {
+      pc.close();
     });
-    peers.current.clear();
     
     setIsInitialized(false);
     setError(null);
@@ -176,7 +187,6 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
     connectionState,
     initializeWebRTC,
     cleanup,
-    localStream: localStreamRef.current,
-    createPeer
+    localStream: localStream.current
   };
 };
