@@ -21,6 +21,7 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     error,
     initializeWebRTC,
     cleanup,
+    localStream
   } = useWebRTC({
     channelId,
     onTrack: (event, participantId) => {
@@ -60,9 +61,24 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // First try to update existing record
+      const { data: existingData, error: existingError } = await supabase
+        .from('voice_channel_participants')
+        .update({
+          connection_state: 'connected',
+          last_heartbeat: new Date().toISOString()
+        })
+        .eq('channel_id', channelId)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (existingData) return existingData;
+
+      // If no existing record, create new one
       const { data, error } = await supabase
         .from('voice_channel_participants')
-        .upsert({
+        .insert({
           channel_id: channelId,
           user_id: user.id,
           connection_state: 'connected',

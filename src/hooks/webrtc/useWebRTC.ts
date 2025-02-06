@@ -12,7 +12,7 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>('new');
-  const localStream = useRef<MediaStream | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
   const peers = useRef<Map<string, SimplePeer.Instance>>(new Map());
 
   const handleSignalingMessage = useCallback(async (message: any) => {
@@ -22,10 +22,10 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
     try {
       let peer = peers.current.get(sender_id);
 
-      if (!peer && localStream.current) {
+      if (!peer && localStreamRef.current) {
         peer = new SimplePeer({
           initiator: false,
-          stream: localStream.current,
+          stream: localStreamRef.current,
           trickle: false,
           config: {
             iceServers: [
@@ -53,7 +53,37 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
 
         peer.on('track', (track, stream) => {
           console.log('Received track:', track.kind);
-          onTrack?.({ track, streams: [stream] } as RTCTrackEvent, sender_id);
+          if (onTrack) {
+            // Create a proper RTCTrackEvent-like object
+            onTrack({
+              track,
+              streams: [stream],
+              receiver: {} as RTCRtpReceiver,
+              transceiver: {} as RTCRtpTransceiver,
+              type: 'track',
+              bubbles: false,
+              cancelBubble: false,
+              cancelable: false,
+              composed: false,
+              currentTarget: null,
+              defaultPrevented: false,
+              eventPhase: 0,
+              isTrusted: true,
+              returnValue: true,
+              srcElement: null,
+              target: null,
+              timeStamp: Date.now(),
+              AT_TARGET: 2,
+              BUBBLING_PHASE: 3,
+              CAPTURING_PHASE: 1,
+              NONE: 0,
+              composedPath: () => [],
+              initEvent: () => {},
+              preventDefault: () => {},
+              stopImmediatePropagation: () => {},
+              stopPropagation: () => {},
+            } as RTCTrackEvent, sender_id);
+          }
         });
 
         peers.current.set(sender_id, peer);
@@ -91,7 +121,7 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         video: false
       });
       
-      localStream.current = stream;
+      localStreamRef.current = stream;
       setIsInitialized(true);
       setError(null);
       console.log('WebRTC initialized successfully');
@@ -106,12 +136,12 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
   const cleanup = () => {
     console.log('Cleaning up WebRTC resources');
     
-    if (localStream.current) {
-      localStream.current.getTracks().forEach(track => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(track => {
         track.stop();
         console.log('Stopped track:', track.kind);
       });
-      localStream.current = null;
+      localStreamRef.current = null;
     }
 
     peers.current.forEach(peer => {
@@ -129,6 +159,6 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
     connectionState,
     initializeWebRTC,
     cleanup,
-    localStream: localStream.current
+    localStream: localStreamRef.current
   };
 };
