@@ -1,56 +1,41 @@
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Mic, MicOff, HeadphoneOff } from "lucide-react";
 import { UserContextMenu } from "./UserContextMenu";
-import { toast } from "sonner";
-
-interface VoiceParticipant {
-  user: {
-    id: string;
-    username: string;
-    avatar_url: string | null;
-  };
-  is_muted: boolean;
-  is_deafened: boolean;
-}
 
 interface VoiceParticipantListProps {
   channelId: string;
 }
 
 export const VoiceParticipantList = ({ channelId }: VoiceParticipantListProps) => {
-  const { data: participants, refetch } = useQuery({
+  const queryClient = useQueryClient();
+
+  const { data: participants } = useQuery({
     queryKey: ['voice-participants', channelId],
     queryFn: async () => {
-      console.log('Fetching voice participants for channel:', channelId);
       const { data, error } = await supabase
         .from('voice_channel_participants')
         .select(`
-          is_muted,
-          is_deafened,
+          *,
           user:profiles(
-            id,
             username,
             avatar_url
           )
         `)
-        .eq('channel_id', channelId);
+        .eq('channel_id', channelId)
+        .neq('connection_state', 'disconnected');
 
-      if (error) {
-        console.error('Error fetching participants:', error);
-        toast.error('Failed to fetch voice participants');
-        throw error;
-      }
-      return data as VoiceParticipant[];
+      if (error) throw error;
+      return data;
     },
-    refetchInterval: false, // Disable polling since we'll use real-time
   });
 
+  // Listen for real-time updates to voice channel participants
   useEffect(() => {
     const channel = supabase
-      .channel(`voice-participants-${channelId}`)
+      .channel('voice_participants')
       .on(
         'postgres_changes',
         {
@@ -59,20 +44,17 @@ export const VoiceParticipantList = ({ channelId }: VoiceParticipantListProps) =
           table: 'voice_channel_participants',
           filter: `channel_id=eq.${channelId}`
         },
-        (payload) => {
-          console.log('Voice participant change:', payload);
-          refetch();
+        () => {
+          // Refetch participants when there are any changes
+          queryClient.invalidateQueries({ queryKey: ['voice-participants', channelId] });
         }
       )
-      .subscribe(status => {
-        console.log('Voice participants subscription status:', status);
-      });
+      .subscribe();
 
     return () => {
-      console.log('Cleaning up voice participants subscription');
       supabase.removeChannel(channel);
     };
-  }, [channelId, refetch]);
+  }, [channelId, queryClient]);
 
   if (!participants?.length) {
     return (
