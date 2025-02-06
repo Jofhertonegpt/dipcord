@@ -1,29 +1,30 @@
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import type { VoipSignal } from '@/types/database';
 
-interface SignalingConfig {
+interface UseVoipSignalingProps {
   sessionId: string;
-  onSignal: (message: any) => void;
+  onSignal: (signal: VoipSignal) => void;
 }
 
-export const useVoipSignaling = ({ sessionId, onSignal }: SignalingConfig) => {
+export const useVoipSignaling = ({ sessionId, onSignal }: UseVoipSignalingProps) => {
   useEffect(() => {
-    if (!sessionId) return;
-
-    console.log('Setting up VOIP signaling for session:', sessionId);
-    
     const channel = supabase
       .channel(`voip-${sessionId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'voip_signaling',
-        filter: `session_id=eq.${sessionId}`,
-      }, payload => {
-        console.log('Received VOIP signal:', payload);
-        onSignal(payload.new);
-      })
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'voip_signaling',
+          filter: `session_id=eq.${sessionId}`,
+        },
+        (payload) => {
+          console.log('Received VOIP signal:', payload);
+          onSignal(payload.new as VoipSignal);
+        }
+      )
       .subscribe(status => {
         console.log('VOIP signaling subscription status:', status);
         if (status === 'CHANNEL_ERROR') {
@@ -32,12 +33,11 @@ export const useVoipSignaling = ({ sessionId, onSignal }: SignalingConfig) => {
       });
 
     return () => {
-      console.log('Cleaning up VOIP signaling subscription');
       supabase.removeChannel(channel);
     };
   }, [sessionId, onSignal]);
 
-  const sendSignal = async (receiverId: string, type: string, payload: any) => {
+  const sendSignal = async (receiverId: string | null, type: string, payload: any) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');

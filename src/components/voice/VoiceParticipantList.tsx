@@ -9,17 +9,32 @@ interface VoiceParticipantListProps {
   channelId: string;
 }
 
+interface Participant {
+  id: string;
+  channel_id: string;
+  user_id: string;
+  is_muted: boolean;
+  is_deafened: boolean;
+  connection_state: string;
+  user: {
+    id: string;
+    username: string;
+    avatar_url: string | null;
+  };
+}
+
 export const VoiceParticipantList = ({ channelId }: VoiceParticipantListProps) => {
   const queryClient = useQueryClient();
 
   const { data: participants } = useQuery({
-    queryKey: ['voice-participants', channelId],
+    queryKey: ['voip-sessions', channelId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('voice_channel_participants')
+        .from('voip_sessions')
         .select(`
           *,
           user:profiles(
+            id,
             username,
             avatar_url
           )
@@ -28,25 +43,23 @@ export const VoiceParticipantList = ({ channelId }: VoiceParticipantListProps) =
         .neq('connection_state', 'disconnected');
 
       if (error) throw error;
-      return data;
+      return data as Participant[];
     },
   });
 
-  // Listen for real-time updates to voice channel participants
   useEffect(() => {
     const channel = supabase
-      .channel('voice_participants')
+      .channel('voip_sessions')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'voice_channel_participants',
+          table: 'voip_sessions',
           filter: `channel_id=eq.${channelId}`
         },
         () => {
-          // Refetch participants when there are any changes
-          queryClient.invalidateQueries({ queryKey: ['voice-participants', channelId] });
+          queryClient.invalidateQueries({ queryKey: ['voip-sessions', channelId] });
         }
       )
       .subscribe();

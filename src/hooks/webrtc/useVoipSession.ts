@@ -1,23 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import type { VoipSession } from '@/types/database';
 
-interface VoipSession {
-  id: string;
-  channel_id: string;
-  user_id: string;
-  connection_state: string;
-  is_muted: boolean;
-  is_deafened: boolean;
-  last_heartbeat: string;
+interface UseVoipSessionProps {
+  channelId: string;
 }
 
-export const useVoipSession = (channelId: string) => {
-  const [sessionId, setSessionId] = useState<string | null>(null);
+export const useVoipSession = ({ channelId }: UseVoipSessionProps) => {
   const queryClient = useQueryClient();
 
-  // Get current session
   const { data: session } = useQuery({
     queryKey: ['voip-session', channelId],
     queryFn: async () => {
@@ -36,7 +29,6 @@ export const useVoipSession = (channelId: string) => {
     },
   });
 
-  // Create session
   const createSession = useMutation({
     mutationFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -55,8 +47,7 @@ export const useVoipSession = (channelId: string) => {
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
-      setSessionId(data.id);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voip-session', channelId] });
     },
     onError: (error: Error) => {
@@ -64,15 +55,14 @@ export const useVoipSession = (channelId: string) => {
     }
   });
 
-  // Update session
   const updateSession = useMutation({
     mutationFn: async (updates: Partial<VoipSession>) => {
-      if (!sessionId) throw new Error('No active session');
+      if (!session?.id) throw new Error('No active session');
 
       const { error } = await supabase
         .from('voip_sessions')
         .update(updates)
-        .eq('id', sessionId);
+        .eq('id', session.id);
 
       if (error) throw error;
     },
@@ -81,25 +71,14 @@ export const useVoipSession = (channelId: string) => {
     }
   });
 
-  // Heartbeat
-  useEffect(() => {
-    if (!sessionId) return;
-
-    const interval = setInterval(() => {
-      updateSession.mutate({ last_heartbeat: new Date().toISOString() });
-    }, 15000);
-
-    return () => clearInterval(interval);
-  }, [sessionId]);
-
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (sessionId) {
+      if (session?.id) {
         updateSession.mutate({ connection_state: 'disconnected' });
       }
     };
-  }, [sessionId]);
+  }, [session?.id]);
 
   return {
     session,
