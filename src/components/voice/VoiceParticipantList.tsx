@@ -1,8 +1,10 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Mic, MicOff, HeadphoneOff } from "lucide-react";
 import { UserContextMenu } from "./UserContextMenu";
+import { toast } from "sonner";
 
 interface VoiceParticipant {
   user: {
@@ -19,9 +21,10 @@ interface VoiceParticipantListProps {
 }
 
 export const VoiceParticipantList = ({ channelId }: VoiceParticipantListProps) => {
-  const { data: participants } = useQuery({
+  const { data: participants, refetch } = useQuery({
     queryKey: ['voice-participants', channelId],
     queryFn: async () => {
+      console.log('Fetching voice participants for channel:', channelId);
       const { data, error } = await supabase
         .from('voice_channel_participants')
         .select(`
@@ -35,11 +38,41 @@ export const VoiceParticipantList = ({ channelId }: VoiceParticipantListProps) =
         `)
         .eq('channel_id', channelId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching participants:', error);
+        toast.error('Failed to fetch voice participants');
+        throw error;
+      }
       return data as VoiceParticipant[];
     },
-    refetchInterval: 1000,
+    refetchInterval: false, // Disable polling since we'll use real-time
   });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`voice-participants-${channelId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'voice_channel_participants',
+          filter: `channel_id=eq.${channelId}`
+        },
+        (payload) => {
+          console.log('Voice participant change:', payload);
+          refetch();
+        }
+      )
+      .subscribe(status => {
+        console.log('Voice participants subscription status:', status);
+      });
+
+    return () => {
+      console.log('Cleaning up voice participants subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [channelId, refetch]);
 
   if (!participants?.length) {
     return (
