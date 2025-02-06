@@ -80,12 +80,11 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
 
   // Handle page unload
   useEffect(() => {
-    const handleUnload = () => {
+    const handleUnload = async () => {
       if (isConnected) {
-        // Synchronous cleanup to ensure it runs before page unload
-        const { data: { user } } = supabase.auth.getUser();
-        if (user) {
-          supabase
+        const { data } = await supabase.auth.getUser();
+        if (data.user) {
+          await supabase
             .from('voice_channel_participants')
             .update({
               connection_state: 'disconnected',
@@ -93,7 +92,7 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
               is_deafened: false
             })
             .eq('channel_id', channelId)
-            .eq('user_id', user.id);
+            .eq('user_id', data.user.id);
         }
       }
     };
@@ -184,6 +183,7 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voice-participants', channelId] });
       queryClient.invalidateQueries({ queryKey: ['voice-participant', channelId] });
+      setIsConnected(true);
       toast.success("Joined voice channel");
       if (joinSoundRef.current) {
         joinSoundRef.current.play().catch(console.error);
@@ -311,7 +311,6 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
               try {
                 await initializeWebRTC();
                 await joinChannel.mutateAsync();
-                setIsConnected(true);
               } catch (error) {
                 console.error('Failed to join voice channel:', error);
               } finally {
