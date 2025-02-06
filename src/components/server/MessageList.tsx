@@ -82,19 +82,25 @@ export const MessageList = ({ channelId }: MessageListProps) => {
   }
 
   return (
-    <ScrollArea ref={scrollRef} className="h-[calc(100vh-8rem)] px-4">
-      <div className="space-y-4 py-4">
-        {messages?.map((message) => (
-          <MessageItem
-            key={message.id}
-            id={message.id}
-            content={message.content}
-            created_at={message.created_at}
-            sender={message.sender}
-            media_urls={message.media_urls}
-          />
-        ))}
-      </div>
-    </ScrollArea>
+    <div className="flex-1 overflow-hidden flex flex-col">
+      <ScrollArea 
+        ref={scrollRef} 
+        className="flex-1 pb-4"
+        style={{ maxHeight: 'calc(100vh - 10rem)' }}
+      >
+        <div className="space-y-4 px-4">
+          {messages?.map((message) => (
+            <MessageItem
+              key={message.id}
+              id={message.id}
+              content={message.content}
+              created_at={message.created_at}
+              sender={message.sender}
+              media_urls={message.media_urls}
+            />
+          ))}
+        </div>
+      </ScrollArea>
+    </div>
   );
 };
