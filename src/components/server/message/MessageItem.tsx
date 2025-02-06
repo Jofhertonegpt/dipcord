@@ -5,6 +5,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } 
 import { ProfileView } from "@/components/profile/ProfileView";
 import { MediaPreview } from "./MediaPreview";
 import { Badge } from "@/components/ui/badge";
+import { Check, Lock } from "lucide-react";
 
 interface MessageSender {
   id: string;
@@ -19,17 +20,27 @@ interface MessageItemProps {
   created_at: string;
   sender: MessageSender | null;
   media_urls: string[] | null;
+  isRead?: boolean;
+  isDelivered?: boolean;
 }
 
-export const MessageItem = ({ id, content, created_at, sender, media_urls }: MessageItemProps) => {
+export const MessageItem = ({ 
+  id, 
+  content, 
+  created_at, 
+  sender, 
+  media_urls,
+  isRead = false,
+  isDelivered = true
+}: MessageItemProps) => {
   return (
-    <div className="flex items-start hover:bg-black/30 px-4 py-2 transition-colors">
+    <div className="flex items-start hover:bg-black/30 px-4 py-2 transition-colors group">
       <ContextMenu>
         <ContextMenuTrigger>
           <Dialog>
             <DialogTrigger asChild>
-              <div className="relative">
-                <Avatar className="cursor-pointer w-10 h-10 shrink-0">
+              <div className="relative cursor-pointer">
+                <Avatar className="w-10 h-10 shrink-0">
                   <AvatarImage src={sender?.avatar_url ?? undefined} />
                   <AvatarFallback>
                     {sender?.username?.substring(0, 2).toUpperCase() ?? "?"}
@@ -52,19 +63,30 @@ export const MessageItem = ({ id, content, created_at, sender, media_urls }: Mes
           </DialogTrigger>
         </ContextMenuContent>
       </ContextMenu>
+
       <div className="flex-1 min-w-0 ml-4">
         <div className="flex items-center gap-2 mb-1">
           <span className="font-semibold text-foreground hover:underline cursor-pointer">
             {sender?.username ?? "Unknown User"}
           </span>
           <span className="text-xs text-muted-foreground">
-            {format(new Date(created_at), "MMM d, h:mm a")}
+            {format(new Date(created_at), "M/d/yyyy h:mm a")}
           </span>
           {sender?.is_online && (
             <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
               online
             </Badge>
           )}
+          <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {isDelivered && !isRead && <Check className="h-4 w-4 text-muted-foreground" />}
+            {isRead && (
+              <div className="flex -space-x-1">
+                <Check className="h-4 w-4 text-primary" />
+                <Check className="h-4 w-4 text-primary" />
+              </div>
+            )}
+            <Lock className="h-3 w-3 text-muted-foreground ml-1" />
+          </div>
         </div>
         <p className="text-foreground/80 break-words">{content}</p>
         {media_urls && media_urls.length > 0 && (

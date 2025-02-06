@@ -18,6 +18,8 @@ interface Message {
     is_online: boolean;
   } | null;
   media_urls: string[] | null;
+  is_read?: boolean;
+  is_delivered?: boolean;
 }
 
 interface MessageListProps {
@@ -109,6 +111,8 @@ export const MessageList = ({ channelId }: MessageListProps) => {
               created_at={message.created_at}
               sender={message.sender}
               media_urls={message.media_urls}
+              isRead={message.is_read}
+              isDelivered={message.is_delivered}
             />
           ))}
         </div>
