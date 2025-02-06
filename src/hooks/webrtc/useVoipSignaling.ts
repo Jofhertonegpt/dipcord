@@ -1,28 +1,28 @@
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import type { VoipSignal } from '@/types/database';
+import type { VoiceSignal } from '@/types/database';
 
 interface UseVoipSignalingProps {
-  sessionId: string;
-  onSignal: (signal: VoipSignal) => void;
+  channelId: string;
+  onSignal: (signal: VoiceSignal) => void;
 }
 
-export const useVoipSignaling = ({ sessionId, onSignal }: UseVoipSignalingProps) => {
+export const useVoipSignaling = ({ channelId, onSignal }: UseVoipSignalingProps) => {
   useEffect(() => {
     const channel = supabase
-      .channel(`voip-${sessionId}`)
+      .channel(`voice-${channelId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'voip_signaling',
-          filter: `session_id=eq.${sessionId}`,
+          table: 'voice_signaling',
+          filter: `channel_id=eq.${channelId}`,
         },
         (payload) => {
           console.log('Received VOIP signal:', payload);
-          onSignal(payload.new as VoipSignal);
+          onSignal(payload.new as VoiceSignal);
         }
       )
       .subscribe(status => {
@@ -35,7 +35,7 @@ export const useVoipSignaling = ({ sessionId, onSignal }: UseVoipSignalingProps)
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [sessionId, onSignal]);
+  }, [channelId, onSignal]);
 
   const sendSignal = async (receiverId: string | null, type: string, payload: any) => {
     try {
@@ -43,9 +43,9 @@ export const useVoipSignaling = ({ sessionId, onSignal }: UseVoipSignalingProps)
       if (!user) throw new Error('Not authenticated');
 
       const { error } = await supabase
-        .from('voip_signaling')
+        .from('voice_signaling')
         .insert({
-          session_id: sessionId,
+          channel_id: channelId,
           sender_id: user.id,
           receiver_id: receiverId,
           type,

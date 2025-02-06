@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import type { VoiceSignal } from '@/types/database';
 
 interface VoiceChatConfig {
   channelId: string;
@@ -29,7 +30,6 @@ export const useVoiceChat = ({ channelId, onTrack }: VoiceChatConfig) => {
         return [{ urls: 'stun:stun.l.google.com:19302' }];
       }
 
-      console.log('Using ICE servers:', data);
       return data.map(server => ({
         urls: server.urls,
         username: server.username,
@@ -52,7 +52,7 @@ export const useVoiceChat = ({ channelId, onTrack }: VoiceChatConfig) => {
           table: 'voice_signaling',
           filter: `channel_id=eq.${channelId}`,
         },
-        async (payload) => {
+        async (payload: { new: VoiceSignal }) => {
           try {
             const { sender_id, type, payload: signalPayload } = payload.new;
             
