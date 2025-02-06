@@ -6,6 +6,7 @@ import { Heart, MessageSquare, Share2 } from "lucide-react";
 import { CommentSection } from "@/components/post/CommentSection";
 import { MediaEmbed } from "@/components/post/MediaEmbed";
 import { motion } from "framer-motion";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface PostCardProps {
   post: any;
@@ -17,6 +18,7 @@ interface PostCardProps {
 
 export const PostCard = ({ post, currentUser, onLike, onUnlike, onShare }: PostCardProps) => {
   const hasLiked = post.likes?.some((like: any) => like.user_id === currentUser?.id);
+  const isMobile = useIsMobile();
 
   return (
     <motion.div
@@ -25,22 +27,22 @@ export const PostCard = ({ post, currentUser, onLike, onUnlike, onShare }: PostC
       transition={{ duration: 0.3 }}
       layout
     >
-      <Card className="p-4 bg-card">
+      <Card className="p-4 bg-card shadow-lg">
         <div className="flex items-start gap-3">
-          <Avatar className="w-10 h-10">
+          <Avatar className="w-10 h-10 shrink-0">
             <AvatarImage src={post.user?.avatar_url} />
             <AvatarFallback>
               {post.user?.username?.[0]?.toUpperCase() ?? "?"}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold">{post.user?.username}</span>
               <span className="text-sm text-muted-foreground">
                 {format(new Date(post.created_at), "MMM d, yyyy")}
               </span>
             </div>
-            <p className="mt-2 text-foreground whitespace-pre-wrap">{post.content}</p>
+            <p className="mt-2 text-foreground whitespace-pre-wrap break-words">{post.content}</p>
             
             {post.media_urls && post.media_urls.length > 0 && (
               <div className="mt-4 grid gap-2 grid-cols-1 sm:grid-cols-2">
@@ -66,10 +68,10 @@ export const PostCard = ({ post, currentUser, onLike, onUnlike, onShare }: PostC
               </div>
             )}
             
-            <div className="flex items-center gap-4 mt-4">
+            <div className="flex items-center gap-4 mt-4 flex-wrap">
               <Button
                 variant="ghost"
-                size="sm"
+                size={isMobile ? "sm" : "default"}
                 className="flex items-center gap-1"
                 onClick={() => hasLiked ? onUnlike() : onLike()}
               >
@@ -82,7 +84,7 @@ export const PostCard = ({ post, currentUser, onLike, onUnlike, onShare }: PostC
               </Button>
               <Button
                 variant="ghost"
-                size="sm"
+                size={isMobile ? "sm" : "default"}
                 className="flex items-center gap-1"
               >
                 <MessageSquare className="h-4 w-4" />
@@ -90,7 +92,7 @@ export const PostCard = ({ post, currentUser, onLike, onUnlike, onShare }: PostC
               </Button>
               <Button
                 variant="ghost"
-                size="sm"
+                size={isMobile ? "sm" : "default"}
                 className="flex items-center gap-1"
                 onClick={onShare}
               >

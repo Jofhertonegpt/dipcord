@@ -7,6 +7,7 @@ import { ImagePlus } from "lucide-react";
 import { FilePreview } from "@/components/message/FilePreview";
 import { useFileUpload } from "@/components/message/useFileUpload";
 import { motion } from "framer-motion";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface CreatePostProps {
   currentUser: any;
@@ -16,6 +17,7 @@ interface CreatePostProps {
 
 export const CreatePost = ({ currentUser, onSubmit, isSubmitting }: CreatePostProps) => {
   const [newPost, setNewPost] = useState("");
+  const isMobile = useIsMobile();
   const {
     selectedFiles,
     fileInputRef,
@@ -49,10 +51,10 @@ export const CreatePost = ({ currentUser, onSubmit, isSubmitting }: CreatePostPr
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <Card className="p-4 bg-card">
+      <Card className="p-4 bg-card shadow-lg">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex gap-3">
-            <Avatar className="w-10 h-10">
+            <Avatar className="w-10 h-10 shrink-0">
               <AvatarImage src={currentUser?.user_metadata?.avatar_url} />
               <AvatarFallback>
                 {currentUser?.email?.[0]?.toUpperCase() ?? "?"}
@@ -63,7 +65,7 @@ export const CreatePost = ({ currentUser, onSubmit, isSubmitting }: CreatePostPr
                 value={newPost}
                 onChange={(e) => setNewPost(e.target.value)}
                 placeholder="What's on your mind?"
-                className="min-h-[100px] bg-background"
+                className="min-h-[100px] bg-background resize-none"
               />
               <FilePreview files={selectedFiles} onRemove={removeFile} />
             </div>
@@ -74,6 +76,7 @@ export const CreatePost = ({ currentUser, onSubmit, isSubmitting }: CreatePostPr
               variant="ghost"
               size="icon"
               onClick={() => fileInputRef.current?.click()}
+              className="hover:bg-accent"
             >
               <ImagePlus className="h-5 w-5" />
             </Button>
@@ -88,6 +91,7 @@ export const CreatePost = ({ currentUser, onSubmit, isSubmitting }: CreatePostPr
             <Button
               type="submit"
               disabled={(!newPost.trim() && selectedFiles.length === 0) || isSubmitting}
+              className={isMobile ? "w-24" : ""}
             >
               Post
             </Button>

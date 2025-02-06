@@ -6,11 +6,13 @@ import { toast } from "sonner";
 import { CreatePost } from "@/components/feed/CreatePost";
 import { PostCard } from "@/components/feed/PostCard";
 import { motion } from "framer-motion";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Feed = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -152,37 +154,39 @@ const Feed = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-2xl space-y-6">
-      <CreatePost
-        currentUser={currentUser}
-        onSubmit={async (content, mediaUrls) => {
-          await createPostMutation.mutateAsync({ content, mediaUrls });
-        }}
-        isSubmitting={createPostMutation.isPending}
-      />
+    <div className="min-h-screen bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container mx-auto p-4 max-w-2xl space-y-6">
+        <CreatePost
+          currentUser={currentUser}
+          onSubmit={async (content, mediaUrls) => {
+            await createPostMutation.mutateAsync({ content, mediaUrls });
+          }}
+          isSubmitting={createPostMutation.isPending}
+        />
 
-      <motion.div
-        className="space-y-4"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
-      >
-        {posts?.map((post: any) => (
-          <PostCard
-            key={post.id}
-            post={post}
-            currentUser={currentUser}
-            onLike={() => likePostMutation.mutate(post.id)}
-            onUnlike={() => unlikePostMutation.mutate(post.id)}
-            onShare={() => {
-              navigator.clipboard.writeText(
-                `${window.location.origin}/posts/${post.id}`
-              );
-              toast.success("Link copied to clipboard!");
-            }}
-          />
-        ))}
-      </motion.div>
+        <motion.div
+          className="space-y-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          {posts?.map((post: any) => (
+            <PostCard
+              key={post.id}
+              post={post}
+              currentUser={currentUser}
+              onLike={() => likePostMutation.mutate(post.id)}
+              onUnlike={() => unlikePostMutation.mutate(post.id)}
+              onShare={() => {
+                navigator.clipboard.writeText(
+                  `${window.location.origin}/posts/${post.id}`
+                );
+                toast.success("Link copied to clipboard!");
+              }}
+            />
+          ))}
+        </motion.div>
+      </div>
     </div>
   );
 };
