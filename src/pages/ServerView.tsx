@@ -6,8 +6,7 @@ import { ChannelList } from "@/components/server/ChannelList";
 import { MessageList } from "@/components/server/MessageList";
 import { MessageInput } from "@/components/server/MessageInput";
 import { VoiceChannel } from "@/components/voice/VoiceChannel";
-import { Loader2, PanelLeftIcon, PanelRightIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 interface Channel {
   id: string;
@@ -116,14 +115,20 @@ const ServerView = () => {
     setSelectedChannel(channelId);
   };
 
+  const handleMessageAreaClick = () => {
+    if (window.innerWidth <= 768) {
+      setSidebarOpen(false);
+    }
+  };
+
   const selectedChannelType = channels?.find(c => c.id === selectedChannel)?.type;
 
   return (
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-background">
       {/* Sidebar */}
       <div 
-        className={`fixed left-0 top-0 h-[calc(100vh-4rem)] z-30 transition-all duration-300 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed md:relative left-0 top-0 h-[calc(100vh-4rem)] z-30 transition-all duration-300 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
         <ChannelList
@@ -134,20 +139,13 @@ const ServerView = () => {
         />
       </div>
 
-      {/* Toggle Button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="fixed left-4 top-4 z-40"
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-      >
-        {sidebarOpen ? <PanelLeftIcon /> : <PanelRightIcon />}
-      </Button>
-
       {/* Main Content */}
-      <div className={`flex-1 flex flex-col h-full transition-all duration-300 ${
-        sidebarOpen ? 'ml-64' : 'ml-0'
-      }`}>
+      <div 
+        className={`flex-1 flex flex-col h-full transition-all duration-300 ${
+          sidebarOpen ? 'md:ml-64' : 'ml-0'
+        }`}
+        onClick={handleMessageAreaClick}
+      >
         {selectedChannel ? (
           <>
             {loadingMessages ? (
