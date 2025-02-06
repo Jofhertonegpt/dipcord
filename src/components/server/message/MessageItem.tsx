@@ -20,10 +20,10 @@ interface MessageItemProps {
 
 export const MessageItem = ({ id, content, created_at, sender, media_urls }: MessageItemProps) => {
   return (
-    <div className="flex items-start space-x-4 group hover:bg-white/5 p-2 rounded-lg transition-colors">
+    <div className="flex items-start gap-4 group hover:bg-white/5 px-4 py-3 rounded-lg transition-colors">
       <Dialog>
         <DialogTrigger asChild>
-          <Avatar className="cursor-pointer">
+          <Avatar className="cursor-pointer w-10 h-10 mt-0.5">
             <AvatarImage src={sender?.avatar_url ?? undefined} />
             <AvatarFallback>
               {sender?.username?.substring(0, 2).toUpperCase() ?? "?"}
@@ -35,18 +35,18 @@ export const MessageItem = ({ id, content, created_at, sender, media_urls }: Mes
           {sender && <ProfileView userId={sender.id} />}
         </DialogContent>
       </Dialog>
-      <div className="flex-1 space-y-1">
-        <div className="flex items-center space-x-2">
-          <span className="font-semibold text-white">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="font-semibold text-white hover:underline cursor-pointer">
             {sender?.username ?? "Unknown User"}
           </span>
           <span className="text-xs text-white/40">
             {format(new Date(created_at), "MMM d, h:mm a")}
           </span>
         </div>
-        <p className="text-white/80">{content}</p>
+        <p className="text-white/80 break-words">{content}</p>
         {media_urls && media_urls.length > 0 && (
-          <div className="grid gap-2 mt-2 grid-cols-1">
+          <div className="grid gap-3 mt-3 grid-cols-1 max-w-2xl">
             {media_urls.map((url, index) => (
               <MediaPreview key={index} url={url} index={index} />
             ))}

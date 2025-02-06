@@ -67,7 +67,6 @@ export const MessageList = ({ channelId }: MessageListProps) => {
     };
   }, [channelId, queryClient]);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     if (scrollRef.current) {
       const scrollElement = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
@@ -89,10 +88,10 @@ export const MessageList = ({ channelId }: MessageListProps) => {
     <div className="flex-1 overflow-hidden flex flex-col">
       <ScrollArea 
         ref={scrollRef} 
-        className="flex-1 pb-4"
+        className="flex-1 py-4"
         style={{ maxHeight: 'calc(100vh - 10rem)' }}
       >
-        <div className="space-y-4 px-4">
+        <div className="space-y-1">
           {messages?.map((message) => (
             <MessageItem
               key={message.id}
