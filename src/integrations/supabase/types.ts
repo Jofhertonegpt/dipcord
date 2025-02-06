@@ -225,6 +225,36 @@ export type Database = {
           },
         ]
       }
+      ice_servers: {
+        Row: {
+          created_at: string
+          credential: string | null
+          id: string
+          is_active: boolean | null
+          updated_at: string
+          urls: string
+          username: string | null
+        }
+        Insert: {
+          created_at?: string
+          credential?: string | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string
+          urls: string
+          username?: string | null
+        }
+        Update: {
+          created_at?: string
+          credential?: string | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string
+          urls?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
       likes: {
         Row: {
           created_at: string
@@ -568,27 +598,33 @@ export type Database = {
         Row: {
           channel_id: string
           created_at: string
+          ice_candidate: Json | null
           id: string
           payload: Json
           receiver_id: string | null
+          sdp: Json | null
           sender_id: string
           type: string
         }
         Insert: {
           channel_id: string
           created_at?: string
+          ice_candidate?: Json | null
           id?: string
           payload: Json
           receiver_id?: string | null
+          sdp?: Json | null
           sender_id: string
           type: string
         }
         Update: {
           channel_id?: string
           created_at?: string
+          ice_candidate?: Json | null
           id?: string
           payload?: Json
           receiver_id?: string | null
+          sdp?: Json | null
           sender_id?: string
           type?: string
         }
