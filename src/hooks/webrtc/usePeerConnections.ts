@@ -1,34 +1,20 @@
 import { useRef, useCallback } from 'react';
-import { useIceServers } from './useIceServers';
-import { useSignaling } from './useSignaling';
 
 interface PeerConnectionsConfig {
   channelId: string;
   localStream: MediaStream | null;
   onTrack?: (event: RTCTrackEvent, participantId: string) => void;
-  onError?: (error: Error) => void;
+  onConnectionStateChange?: (state: RTCPeerConnectionState) => void;
 }
 
 export const usePeerConnections = ({
   channelId,
   localStream,
   onTrack,
-  onError
+  onConnectionStateChange
 }: PeerConnectionsConfig) => {
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const pendingIceCandidates = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
-  const connectionState = useRef<Map<string, RTCPeerConnectionState>>(new Map());
-  const { data: iceServers } = useIceServers();
-
-  const handleConnectionStateChange = (pc: RTCPeerConnection, participantId: string) => {
-    const state = pc.connectionState;
-    connectionState.current.set(participantId, state);
-    console.log(`Connection state with ${participantId}:`, state);
-
-    if (state === 'failed' || state === 'disconnected') {
-      onError?.(new Error(`Connection ${state} with participant ${participantId}`));
-    }
-  };
 
   const createPeerConnection = useCallback(async (participantId: string) => {
     try {
@@ -43,37 +29,16 @@ export const usePeerConnections = ({
         iceCandidatePoolSize: 1
       });
 
-      pc.oniceconnectionstatechange = () => {
-        console.log(`[ICE] Connection state with ${participantId}:`, pc.iceConnectionState);
-        if (pc.iceConnectionState === 'failed') {
-          onError?.(new Error('ICE connection failed'));
+      pc.onconnectionstatechange = () => {
+        console.log(`[ICE] Connection state with ${participantId}:`, pc.connectionState);
+        onConnectionStateChange?.(pc.connectionState);
+        if (pc.connectionState === 'failed') {
+          console.error('Connection failed with participant:', participantId);
         }
       };
 
-      pc.onconnectionstatechange = () => handleConnectionStateChange(pc, participantId);
-
-      pc.onicecandidate = async (event) => {
-        if (event.candidate) {
-          console.log(`[ICE] New candidate for ${participantId}`);
-          try {
-            const { sendSignal } = useSignaling({ 
-              channelId, 
-              onSignalingMessage: () => {} 
-            });
-            
-            await sendSignal(participantId, 'ice-candidate', {
-              candidate: {
-                candidate: event.candidate.candidate,
-                sdpMLineIndex: event.candidate.sdpMLineIndex,
-                sdpMid: event.candidate.sdpMid,
-                usernameFragment: event.candidate.usernameFragment
-              }
-            });
-          } catch (error) {
-            console.error('Error sending ICE candidate:', error);
-            onError?.(new Error('Failed to send ICE candidate'));
-          }
-        }
+      pc.oniceconnectionstatechange = () => {
+        console.log(`[ICE] ICE Connection state with ${participantId}:`, pc.iceConnectionState);
       };
 
       pc.ontrack = (event) => {
@@ -91,19 +56,24 @@ export const usePeerConnections = ({
       }
 
       peerConnections.current.set(participantId, pc);
+
+      // Process any pending ICE candidates for this peer
+      const candidates = pendingIceCandidates.current.get(participantId) || [];
+      for (const candidate of candidates) {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+      pendingIceCandidates.current.delete(participantId);
+
       return pc;
     } catch (error) {
       console.error('Error creating peer connection:', error);
-      onError?.(new Error('Failed to create peer connection'));
-      return null;
+      throw error;
     }
-  }, [channelId, iceServers, onTrack, onError]);
+  }, [channelId, localStream, onTrack]);
 
   return {
     peerConnections: peerConnections.current,
-    connectionState: connectionState.current,
     createPeerConnection,
-    processPendingIceCandidates,
     pendingIceCandidates: pendingIceCandidates.current
   };
 };

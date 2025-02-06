@@ -1,9 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useAudioAnalysis } from './useAudioAnalysis';
 import { usePeerConnections } from './usePeerConnections';
 import { useSignaling } from './useSignaling';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 
 interface WebRTCConfig {
   channelId: string;
@@ -13,57 +12,19 @@ interface WebRTCConfig {
 export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>('new');
   const localStream = useRef<MediaStream | null>(null);
-  const heartbeatInterval = useRef<number>();
-
-  const updateConnectionState = async (state: string) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { error } = await supabase
-        .from('voice_channel_participants')
-        .update({
-          connection_state: state,
-          last_heartbeat: new Date().toISOString()
-        })
-        .eq('channel_id', channelId)
-        .eq('user_id', user.id);
-
-      if (error) {
-        console.error('Error updating connection state:', error);
-      }
-    } catch (error) {
-      console.error('Error in updateConnectionState:', error);
-    }
-  };
-
-  const startHeartbeat = () => {
-    heartbeatInterval.current = window.setInterval(async () => {
-      await updateConnectionState('connected');
-    }, 15000) as unknown as number;
-  };
-
-  const stopHeartbeat = () => {
-    if (heartbeatInterval.current) {
-      clearInterval(heartbeatInterval.current);
-    }
-  };
 
   const { 
     peerConnections, 
     createPeerConnection, 
-    processPendingIceCandidates,
-    pendingIceCandidates,
-    connectionState 
+    pendingIceCandidates 
   } = usePeerConnections({ 
     channelId, 
     localStream: localStream.current, 
     onTrack,
-    onError: (error) => {
-      console.error('Peer connection error:', error);
-      toast.error(`Connection error: ${error.message}`);
-      updateConnectionState('error');
+    onConnectionStateChange: (state) => {
+      setConnectionState(state);
     }
   });
 
@@ -180,61 +141,29 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
         throw new Error('WebRTC is not supported in this browser');
       }
 
-      const constraints = {
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 48000,
-          channelCount: 1
+          autoGainControl: true
         },
         video: false
-      };
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        localStream.current = stream;
-        
-        // Verify audio tracks
-        const audioTracks = stream.getAudioTracks();
-        if (audioTracks.length === 0) {
-          throw new Error('No audio track available in the stream');
-        }
-        
-        console.log('Audio tracks:', audioTracks.map(track => ({
-          id: track.id,
-          enabled: track.enabled,
-          muted: track.muted,
-          readyState: track.readyState
-        })));
-
-        await updateConnectionState('connected');
-        startHeartbeat();
-        setIsInitialized(true);
-        setError(null);
-        console.log('WebRTC initialized successfully');
-      } catch (error: any) {
-        if (error.name === 'NotAllowedError') {
-          throw new Error('Microphone access denied. Please allow microphone access and try again.');
-        } else if (error.name === 'NotFoundError') {
-          throw new Error('No microphone found. Please connect a microphone and try again.');
-        } else {
-          throw error;
-        }
-      }
+      });
+      
+      localStream.current = stream;
+      setIsInitialized(true);
+      setError(null);
+      console.log('WebRTC initialized successfully');
     } catch (error: any) {
       console.error('WebRTC initialization error:', error);
       setError(error.message);
       toast.error(`Failed to initialize voice: ${error.message}`);
-      await updateConnectionState('error');
       throw error;
     }
   };
 
-  const cleanup = async () => {
+  const cleanup = () => {
     console.log('Cleaning up WebRTC resources');
-    
-    stopHeartbeat();
     
     if (localStream.current) {
       localStream.current.getTracks().forEach(track => {
@@ -244,21 +173,13 @@ export const useWebRTC = ({ channelId, onTrack }: WebRTCConfig) => {
       localStream.current = null;
     }
 
-    peerConnections.forEach((pc, id) => {
-      console.log(`Closing peer connection with ${id}`);
+    peerConnections.forEach(pc => {
       pc.close();
     });
     
-    await updateConnectionState('disconnected');
     setIsInitialized(false);
     setError(null);
   };
-
-  useEffect(() => {
-    return () => {
-      cleanup();
-    };
-  }, []);
 
   return {
     isInitialized,
