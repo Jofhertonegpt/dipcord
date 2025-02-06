@@ -46,15 +46,40 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { error } = await supabase
+      // First check if user is already in the channel
+      const { data: existingParticipant } = await supabase
         .from('voice_channel_participants')
-        .insert({
-          channel_id: channelId,
-          user_id: user.id,
-          connection_state: 'connecting'
-        });
+        .select('*')
+        .eq('channel_id', channelId)
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (existingParticipant) {
+        // Update existing participant record
+        const { error } = await supabase
+          .from('voice_channel_participants')
+          .update({ 
+            connection_state: 'connecting',
+            is_muted: false,
+            is_deafened: false,
+            last_heartbeat: new Date().toISOString()
+          })
+          .eq('channel_id', channelId)
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+      } else {
+        // Create new participant record
+        const { error } = await supabase
+          .from('voice_channel_participants')
+          .insert({
+            channel_id: channelId,
+            user_id: user.id,
+            connection_state: 'connecting'
+          });
+
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voice-participants', channelId] });
@@ -75,7 +100,11 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
 
       const { error } = await supabase
         .from('voice_channel_participants')
-        .update({ connection_state: 'disconnected' })
+        .update({ 
+          connection_state: 'disconnected',
+          is_muted: false,
+          is_deafened: false
+        })
         .eq('channel_id', channelId)
         .eq('user_id', user.id);
 
@@ -92,6 +121,7 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     },
   });
 
+  // Handle cleanup on unmount or channel change
   useEffect(() => {
     const handleUnload = async () => {
       if (isConnected) {
@@ -100,13 +130,14 @@ export const VoiceChannel = ({ channelId }: VoiceChannelProps) => {
     };
 
     window.addEventListener('beforeunload', handleUnload);
+    
     return () => {
       window.removeEventListener('beforeunload', handleUnload);
       if (isConnected) {
         leaveChannel.mutate();
       }
     };
-  }, [isConnected]);
+  }, [isConnected, channelId]);
 
   if (voiceChatError) {
     return (
