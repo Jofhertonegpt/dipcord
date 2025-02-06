@@ -36,9 +36,18 @@ export const MessageItem = ({
 }: MessageItemProps) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
+  const handleProfileClick = () => {
+    setIsProfileOpen(true);
+  };
+
   return (
     <div className="flex items-start hover:bg-black/30 px-4 py-2 transition-colors group">
-      <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+      <Dialog 
+        open={isProfileOpen} 
+        onOpenChange={(open) => {
+          setIsProfileOpen(open);
+        }}
+      >
         <ContextMenu>
           <ContextMenuTrigger>
             <div className="relative cursor-pointer">
@@ -56,7 +65,7 @@ export const MessageItem = ({
           <ContextMenuContent className="bg-[#403E43] border-[#33C3F0]/20 text-white">
             <ContextMenuItem 
               className="hover:bg-[#33C3F0]/10 focus:bg-[#33C3F0]/10 cursor-pointer"
-              onClick={() => setIsProfileOpen(true)}
+              onClick={handleProfileClick}
             >
               View Profile
             </ContextMenuItem>
