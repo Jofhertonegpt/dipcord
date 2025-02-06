@@ -15,6 +15,7 @@ interface Message {
     id: string;
     username: string;
     avatar_url: string | null;
+    is_online: boolean;
   } | null;
   media_urls: string[] | null;
 }
@@ -31,13 +32,25 @@ export const MessageList = ({ channelId }: MessageListProps) => {
   const { data: messages, isLoading } = useQuery({
     queryKey: ['messages', channelId],
     queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: follows } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', user.id);
+
+      const followedIds = follows?.map(f => f.following_id) || [];
+      followedIds.push(user.id); // Include user's own messages
+
       const { data, error } = await supabase
         .from('messages')
         .select(`
           *,
-          sender:profiles(id, username, avatar_url)
+          sender:profiles(id, username, avatar_url, is_online)
         `)
         .eq('channel_id', channelId)
+        .in('sender_id', followedIds)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
